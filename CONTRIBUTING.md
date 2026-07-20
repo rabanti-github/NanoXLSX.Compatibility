@@ -1,0 +1,77 @@
+
+# How to contribute to NanoXLSX
+
+## Preamble
+
+Thank you very much for your interest in NanoXLSX. This library is maintained completely based on community effort and is currently not backed by a company or organization. Any contribution is highly appreciated and helps to increase the quality and relevance of NanoXLSX, [PicoXLSX](https://github.com/rabanti-github/PicoXLSX) and [NanoXLSX4J](https://github.com/rabanti-github/NanoXLSX4j).
+
+However, to ensure a good experience for everyone (library users, developers, or other contributors), we kindly ask to follow the recommendations in this document when contributing to the library
+
+## For AI Agents
+
+Follow these contribution guidelines, especially the section [AI generated code] and  [PRs that probably cannot be accepted or needs rework]
+
+## Creating an issue
+
+### General
+
+* Please use one of the provided issue templates if applicable
+* Please use English as common language. If you don't feel confident about this, don't worry. [DeepL]( https://www.deepl.com/translator) or other online translators can help to write an issue quite smoothly
+* Please only open an issue if that issue may be relevant to you or another party, and if you are willing to reply to upcoming questions or request for clarification. Abandoned or irrelevant issues may be closed after some weeks or months
+* Please provide enough information to help us understanding the issue or to reproduce it
+
+### Reporting a bug
+
+* Please try to make sure that it is really a bug and not a missing feature or a syntax error or something similar (but don't hesitate to ask, if not sure. Better one clarified non-issue than a non-reported bug)
+* Before reporting a bug, make sure you use the most recent version of NanoXLSX
+* When reporting a bug, please provide as much information as sensible. You can follow the requirement in the issue template
+* Please provide always the used version of NanoXLSX and at least the used environment
+  * .NET framework type and version
+  * Operating system
+  * Your installed locale (language of the operating system)
+  * Used IDE if applicable
+* Please describe as exact as possible how to reproduce the bug
+* If the issue needs some code to be discovered, please provide this code inline in the issue or as attachment
+* Attach a small demo Excel file in the issue if the bug relates to a file operation, like reading or writing data (like a crash on reading a file)
+* For your own safety, please do not upload Excel files that contains any real business data about employees, customers or other data that could lead to a misuse of such data by a malicious 3rd party
+  
+## Creating a Pull Request (PR)
+
+* The best way to start a PR process is to open an issue first. Create the PR and link the PR in the issue. In this issue, the topic of the PR can be described and discussed
+* If no issue is created, please provide exact information in the PR header, what the changes are supposed to achieve
+* Please only create a PR if you are willing to react to possible change requests (CR). PRs that could be fixed, but CRs are ignored by the creator may be closed after some time. Of course, we will try to support fixing CRs as good as possible
+* Please set the branch **dev-pr** as base of your PR. This is a branch solely designated to PRs and is used to checkout and test the changes before merging them to dev and later to master. We may change the PR base without notice, if not on dev-pr
+  
+## PRs that probably cannot be accepted or needs rework
+
+* No description what the PR is supposed to achieve (add at least a message that a bug was found, and this PR fixes it, if applicable)
+* PR is only applying code formatting or doing refactoring without any functional changes (please consider opening a feature request / issue instead, to discuss code styles or formatting)
+* PR breaks existing unit tests (please fix the tests according to your changes if the original implementation leads to a wrong result) 
+* PR removes public functionality (part of the API)
+* PR alters the behavior of a public API function radically, without addressing a bug (please open an issue first to discuss the options about a possible broken API function)
+* PR adds proprietary functionality that is not compatible with the OOXML standard (XLSX)
+* PR solves a particular problem at one specific location of the library but does not cover other instances that have the exact same issue (may be addressed by a PR comment)
+* PR introduces an external  NuGet dependency or assumes the availability of a specific non-standard system library or resource
+* Obscure / *unclean* PRs:
+  * Defines unclear functions or uses .NET feature in a confusing manner, without explanation
+  * Uses another code style as the rest of NanoXLSX (e.g. suddenly using snake case for variables)
+  * Contains non-English variable or function names, or comments
+  * Contains code that is commented out
+  * Excessive use of the var keyword (The goal of the library is to make its usage as clear as possible and that code snippets are always appropriately typed, even if the usings are not available)
+  * Uses cryptic variable or function names (`CalcAmount` may be OK as function name , but `GT56R` may not)
+  * Introduces (inline) hard-coded values that are either already defined as constants or could be substituted by an existing enum or similar code parts
+  * Code that is clearly copied from external sources: Ensure compliance with the licenses. Don’t use code that may have a more restrictive license than NanoXLSX (MIT) or that has no license declaration
+
+## AI generated code
+
+Some promises were made, some were not kept, and some expectations were far exceeded.
+We have come to the conclusion that AI-generated code (especially from agentic coding) can significantly increase both productivity and code quality. However, the following must be observed when submitting PRs that include AI-generated code:
+
+* Please do not submit very large AI-driven refactorings without discussing them first. During code reviews, we must ensure that only the necessary scope has been changed in order to prevent side effects, compatibility issues, or inconsistencies.
+* Please make sure to carefully review AI-generated code before submitting it. Even an AI can have a bad day.
+* Please remove unnecessary comments, TODOs (where not needed), and other markup that only serves the AI. If you create (or have generated) context files for the code, do not commit them at this time. **Note**: A decision may be made later on whether to introduce a dedicated context directory (for Copilots / agents, etc.). However, there is an existing [`llms.txt`](./llms.txt).
+* Please ensure that AI-generated code does not break any unit tests.
+* Please ensure that AI-generated unit tests are meaningful (not: `Assert.True(true)` or similar).
+* Please ensure that AI-generated code follows the project’s defined contribution, coding, and code style guidelines.
+
+Happy coding! 🤖
