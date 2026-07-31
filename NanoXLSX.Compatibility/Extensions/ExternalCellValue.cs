@@ -25,7 +25,7 @@ namespace NanoXLSX
             Date,
             /// <summary>External cell value is an error and not actually a value</summary>
             Error,
-            /// <summary>External cell value is an inlnine string with optional formatting, but not maintained as shared string</summary>
+            /// <summary>External cell value is an inline string with optional formatting, but not maintained as shared string</summary>
             InlineString,
             /// <summary>External cell value is a shared string reference</summary>
             SharedString,
@@ -49,7 +49,7 @@ namespace NanoXLSX
         /// <summary>
         /// Constructor with value and type
         /// </summary>
-        /// <param name="value">Value as string representation. Null will be trasformed to the type <see cref="DataType.Empty"/>. The cached value will be "0" in this case</param>
+        /// <param name="value">Value as string representation. Null will be transformed to the type <see cref="DataType.Empty"/>. The cached value will be "0" in this case</param>
         /// <param name="type">Type of the external cell</param>
         /// \Remark <remarks>The validity of the passed string representation of a number is not checked. The type <see cref="DataType.Empty"/> will discard the passed value</remarks>
         public ExternalCellValue(string value, DataType type)
@@ -69,7 +69,7 @@ namespace NanoXLSX
         /// <summary>
         /// Constructor with value. The type <see cref="DataType.Number"/> will be used as default type
         /// </summary>
-        /// <param name="value">Value as string representation. Null will be trasformed to the type <see cref="DataType.Empty"/>. The cached value will be "0" case</param>
+        /// <param name="value">Value as string representation. Null will be transformed to the type <see cref="DataType.Empty"/>. The cached value will be "0" case</param>
         /// \Remark <remarks>The validity of the passed string representation of a number is not checked.</remarks>
         public ExternalCellValue(string value) : this(value, DataType.Number) { }
     }

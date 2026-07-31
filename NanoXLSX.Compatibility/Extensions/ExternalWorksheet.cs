@@ -19,7 +19,7 @@ namespace NanoXLSX
     {
 
         /// <summary>
-        /// Dictionary of the exteranl cells (addresses with values as strings)
+        /// Dictionary of the external cells (addresses with values as strings)
         /// </summary>
         private readonly Dictionary<Address, ExternalCellValue> cells = new Dictionary<Address, ExternalCellValue>();
 
@@ -51,7 +51,7 @@ namespace NanoXLSX
         /// Adds or replaces a cached cell value.
         /// </summary>
         /// <param name="address">Address of the external cell</param>
-        /// <param name="value">Sting representation of the external cell value, where the default <see cref="ExternalCellValue.DataType.Number"/> is used. A null value will be transformed to non-chached value, represented by "0"</param>
+        /// <param name="value">Sting representation of the external cell value, where the default <see cref="ExternalCellValue.DataType.Number"/> is used. A null value will be transformed to non-cached value, represented by "0"</param>
         public ExternalWorksheet AddCell(string address, string value)
         {
             return AddCell(address, value, ExternalCellValue.DataType.Number);
@@ -61,7 +61,7 @@ namespace NanoXLSX
         /// Adds or replaces a cached cell value with defined typ.
         /// </summary>
         /// <param name="address">Address of the external cell</param>
-        /// <param name="value">Sting representation of the external cell value. A null value will be transformed to non-chached value, represented by "0"</param>
+        /// <param name="value">Sting representation of the external cell value. A null value will be transformed to non-cached value, represented by "0"</param>
         /// <param name="type">Data type of the external, cached cell</param>
         public ExternalWorksheet AddCell(string address, string value, ExternalCellValue.DataType type)
         {
@@ -84,7 +84,7 @@ namespace NanoXLSX
         /// <summary>
         /// Tries to get cached data for a cell.
         /// </summary>
-        /// <param name="address">Adress of the cached cell</param>
+        /// <param name="address">Address of the cached cell</param>
         /// <param name="cell">Out parameter of the cell value</param>
         public bool TryGetCell(string address, out ExternalCellValue cell)
         {

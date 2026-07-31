@@ -13,10 +13,10 @@ using IOException = NanoXLSX.Exceptions.IOException;
 namespace NanoXLSX.Internal.Readers
 {
     /// <summary>
-    /// Class implementing a reader for exteranl link relationship files of XLSX files.
+    /// Class implementing a reader for external link relationship files of XLSX files.
     /// </summary>
     [NanoXlsxQueuePlugIn(PlugInUUID = "EXTERNAL_LINK_RELS_READER", QueueUUID = PlugInUUID.ReaderPrependingQueue, PlugInOrder = 20000)]
-    internal class ExternalLinkRelsReader : IPluginQueueReader
+    internal class ExternalLinkRelsReader : IPluginPackageReader
     {
         #region privateFields
 
@@ -41,6 +41,8 @@ namespace NanoXLSX.Internal.Readers
         /// Reference to a ReaderPlugInHandler, to be used for post operations in the <see cref="Execute"/> method
         /// </summary>
         public Action<Stream, Workbook, string, IOptions, int?> InlinePluginHandler { get; set; }
+
+        public string StreamEntryName => "";
         #endregion
 
         #region constructors
@@ -72,14 +74,26 @@ namespace NanoXLSX.Internal.Readers
         /// <summary>
         /// Method to execute the main logic of the plug-in (interface implementation)
         /// </summary>
-        /// <exception cref="Exceptions.IOException">Throws an IOException in case of a error during reading</exception>
+        /// <exception cref="IOException">Throws an IOException in case of a error during reading</exception>
         public void Execute()
         {
+            // TODO implement
             try
             {
-                StringBuilder sb = new StringBuilder();
                 using (XmlReader reader = XmlReader.Create(stream, XmlStreamUtils.CreateSettings()))
                 {
+                    while (reader.Read())
+                    {
+                        if (!XmlStreamUtils.IsElement(reader, "Relationship"))
+                        {
+                            continue;
+                        }
+                        string attribute = reader.GetAttribute("Target");
+                        if (attribute != null)
+                        {
+
+                        }
+                    }
 
                 }
 

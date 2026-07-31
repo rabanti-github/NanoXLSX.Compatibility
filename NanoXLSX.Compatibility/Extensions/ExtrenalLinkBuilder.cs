@@ -19,7 +19,7 @@ namespace NanoXLSX
         private ExternalWorksheet currentWorksheet;
 
         /// <summary>
-        /// Internal cosntructor of the bilder
+        /// Internal constructor of the builder
         /// </summary>
         /// <param name="externalLink"></param>
         /// <exception cref="ArgumentException"></exception>

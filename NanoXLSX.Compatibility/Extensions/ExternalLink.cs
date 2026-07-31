@@ -48,7 +48,7 @@ namespace NanoXLSX
         /// Constructor of an external workbook link with URI.
         /// </summary>
         /// <param name="uri">Main path or URI of the external workbook.</param>
-        /// \remark <remarks>The URI is often defined as absulte path. For a better portability, a relative path can be used. However, NanoXLSX will not access or validate the defined URI</remarks>
+        /// \remark <remarks>The URI is often defined as absolute path. For a better portability, a relative path can be used. However, NanoXLSX will not access or validate the defined URI</remarks>
         public ExternalLink(string uri)
         {
             AddUri(uri);

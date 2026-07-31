@@ -13,7 +13,7 @@ using IOException = NanoXLSX.Exceptions.IOException;
 namespace NanoXLSX.Internal.Readers
 {
     /// <summary>
-    /// Class implementing a reader for exteranl link files of XLSX files.
+    /// Class implementing a reader for external link files of XLSX files.
     /// </summary>
     [NanoXlsxQueuePlugIn(PlugInUUID = "EXTERNAL_LINK_READER", QueueUUID = PlugInUUID.ReaderPrependingQueue, PlugInOrder = 20001)]
     internal class ExternalLinkReader : IPluginQueueReader
@@ -80,7 +80,7 @@ namespace NanoXLSX.Internal.Readers
                 StringBuilder sb = new StringBuilder();
                 using (XmlReader reader = XmlReader.Create(stream, XmlStreamUtils.CreateSettings()))
                 {
-
+                    // TODO implement
                 }
 
             }
