@@ -37,7 +37,7 @@ namespace NanoXLSX.Internal
         public void Execute()
         {
             // Tells the writer that external links can be written
-            WriteContext.MarkFeatureAsPrepared(PlugInUUID.WriteExternalLinkFeature); 
+            WriteContext.MarkFeatureAsPrepared(PlugInUUID.WriteExternalLinkFeature);
 
             // TODO Add further enabled compatibility features here
         }

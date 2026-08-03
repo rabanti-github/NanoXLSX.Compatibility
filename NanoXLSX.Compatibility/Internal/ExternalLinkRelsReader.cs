@@ -6,7 +6,6 @@ using NanoXLSX.Utils.Xml;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text;
 using System.Xml;
 using IOException = NanoXLSX.Exceptions.IOException;
 
