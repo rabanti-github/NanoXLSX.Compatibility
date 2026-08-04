@@ -4,19 +4,36 @@ using NanoXLSX.Interfaces.Writer;
 using NanoXLSX.Internal;
 using NanoXLSX.Registry;
 using System.Collections.Generic;
+using System.ComponentModel;
 using Xunit;
 
 namespace NanoXLSX.Compatibility.Test
 {
     public class CompatibilityPreparingInlineWriteProcessorTest
     {
-
-        [Fact]
-        public void ResolvesMultipleLinksForDefinedNamesAndCellFormulasTest()
+        [Fact (DisplayName ="Test of the resolution of multiple links for defined names")]
+        public void ResolvesMultipleLinksForDefinedNamesTest()
         {
             Workbook workbook = new Workbook("Sheet1");
             string expression = "SUM('C:\\temp\\[book one.xlsx]Sheet 1'!$A$1,'..\\[other.xlsx]Data'!$B$2)";
             DefinedName definedName = workbook.AddDefinedNameFormula("ExternalTotal", expression);
+
+            Execute(workbook, "C:\\temp\\book one.xlsx", "../other.xlsx");
+
+            const string expected = "SUM('[1]Sheet 1'!$A$1,'[2]Data'!$B$2)";
+
+            string defNameEntityId = CompatibilityConstants.EXTERNAL_LINK_RESOLVED_DEFINED_NAMES_ENTITY;
+
+            Assert.Equal(expected, GetResolved(workbook, defNameEntityId, "0").Expression);
+            Assert.Equal(expected, GetResolved(workbook, defNameEntityId, "0").Expression);
+            Assert.Equal(expression, definedName.TextValue);
+        }
+
+        [Fact(DisplayName = "Test of the resolution of multiple links for cell formulas")]
+        public void ResolvesMultipleLinksForCellFormulasTest()
+        {
+            Workbook workbook = new Workbook("Sheet1");
+            string expression = "SUM('C:\\temp\\[book one.xlsx]Sheet 1'!$A$1,'..\\[other.xlsx]Data'!$B$2)";
             workbook.CurrentWorksheet.AddCellFormula(expression, "A1");
             Cell cell = workbook.CurrentWorksheet.GetCell(0, 0);
 
@@ -24,19 +41,16 @@ namespace NanoXLSX.Compatibility.Test
 
             const string expected = "SUM('[1]Sheet 1'!$A$1,'[2]Data'!$B$2)";
 
-            string defNameEntityId = CompatibilityConstants.EXTERNAL_LINK_RESOLVED_DEFINED_NAMES_ENTITY;
             string formulaEntityId = CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY;
 
-            Assert.Equal(expected, GetResolved(workbook, defNameEntityId, "0").Expression);
-            Assert.Equal(expected, GetResolved(workbook, defNameEntityId, "0").Expression);
             Assert.Equal(expected, GetResolved(workbook, formulaEntityId, "0:A1").Expression);
             Assert.Equal(expected, GetResolved(workbook, formulaEntityId, "0:A1").Expression);
-            Assert.Equal(expression, definedName.TextValue);
             Assert.Equal(expression, cell.Value);
             Assert.Equal(expression, cell.Formula.Expression);
         }
 
         [Theory]
+        [DisplayName("Test of path variants for defined names")]
         [InlineData("book.xlsx", "[book.xlsx]Sheet1!$A$1")]
         [InlineData("C:\\temp\\book.xlsx", "C:\\temp\\[book.xlsx]Sheet1!$A$1")]
         [InlineData("C:/temp/book.xlsx", "C:\\temp\\[book.xlsx]Sheet1!$A$1")]
@@ -44,7 +58,25 @@ namespace NanoXLSX.Compatibility.Test
         [InlineData("/mnt/data/book.xlsx", "/mnt/data/[book.xlsx]Sheet1!$A$1")]
         [InlineData("file:///C:/temp/book%20one.xlsx", "C:\\temp\\[book one.xlsx]Sheet1!$A$1")]
         [InlineData("file://server/share/book.xlsx", "\\\\server\\share\\[book.xlsx]Sheet1!$A$1")]
-        public void ResolvesPathVariantsTest(string linkUri, string formula)
+        public void ResolvesPathVariantsDefinedNamesTest(string linkUri, string formula)
+        {
+            Workbook workbook = new Workbook("Sheet1");
+            workbook.AddDefinedNameFormula("definedName", formula);
+            Execute(workbook, linkUri);
+
+            Assert.Equal("[1]Sheet1!$A$1", GetResolved(workbook, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_DEFINED_NAMES_ENTITY, "0").Expression);
+        }
+
+        [Theory]
+        [DisplayName("Test of path variants for cell formulas")]
+        [InlineData("book.xlsx", "[book.xlsx]Sheet1!$A$1")]
+        [InlineData("C:\\temp\\book.xlsx", "C:\\temp\\[book.xlsx]Sheet1!$A$1")]
+        [InlineData("C:/temp/book.xlsx", "C:\\temp\\[book.xlsx]Sheet1!$A$1")]
+        [InlineData("../data/book.xlsx", "..\\data\\[book.xlsx]Sheet1!$A$1")]
+        [InlineData("/mnt/data/book.xlsx", "/mnt/data/[book.xlsx]Sheet1!$A$1")]
+        [InlineData("file:///C:/temp/book%20one.xlsx", "C:\\temp\\[book one.xlsx]Sheet1!$A$1")]
+        [InlineData("file://server/share/book.xlsx", "\\\\server\\share\\[book.xlsx]Sheet1!$A$1")]
+        public void ResolvesPathVariantsCellFormulasTest(string linkUri, string formula)
         {
             Workbook workbook = new Workbook("Sheet1");
             workbook.CurrentWorksheet.AddCellFormula(formula, "A1");
@@ -53,7 +85,7 @@ namespace NanoXLSX.Compatibility.Test
             Assert.Equal("[1]Sheet1!$A$1", GetResolved(workbook, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY, "0:A1").Expression);
         }
 
-        [Fact]
+        [Fact (DisplayName ="Test of the resolution with distinct cases of links")]
         public void ResolvesCaseDistinctLinksByExactCaseTest()
         {
             Workbook workbook = new Workbook("Sheet1");
@@ -70,7 +102,7 @@ namespace NanoXLSX.Compatibility.Test
             Assert.Equal(2, resolved.LinkIndexes.Count);
         }
 
-        [Fact]
+        [Fact (DisplayName ="Test of summary of multiple identical links")]
         public void ResolvesCaseInsensitiveLinksTest()
         {
             Workbook workbook = new Workbook("Sheet1");
@@ -87,7 +119,7 @@ namespace NanoXLSX.Compatibility.Test
             Assert.Equal(1, resolved.LinkIndexes.Count);
         }
 
-        [Fact]
+        [Fact (DisplayName ="Test of the failed attempt to resolve a link when multiple links could match")]
         public void RejectsNonExactCaseWhenMultipleLinksCouldMatchTest()
         {
             Workbook workbook = new Workbook("Sheet1");
@@ -103,9 +135,7 @@ namespace NanoXLSX.Compatibility.Test
             Assert.Contains("1, 2", exception.Message);
         }
 
-
-
-        [Fact]
+        [Fact(DisplayName = "Test of the failed resolution if multiple identical links where defined")]
         public void RejectsIdenticalTargetsTest()
         {
             Workbook workbook = new Workbook("Sheet1");
@@ -120,9 +150,7 @@ namespace NanoXLSX.Compatibility.Test
             Assert.Contains("1, 2", exception.Message);
         }
 
-
-
-        [Fact]
+        [Fact (DisplayName ="Test of the resolution of files with identical names but different directories")]
         public void DistinguishesSameFilenameInDifferentDirectoriesTest()
         {
             Workbook workbook = new Workbook("Sheet1");
@@ -139,9 +167,7 @@ namespace NanoXLSX.Compatibility.Test
                 GetResolved(workbook, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY, "0:A1").Expression);
         }
 
-
-
-        [Fact]
+        [Fact (DisplayName ="Test of the resolution of external links when multiple URIs for the same links are defined")]
         public void CoalescesMultipleAliasesOfOneLinkTest()
         {
             Workbook workbook = new Workbook("Sheet1");
@@ -153,9 +179,7 @@ namespace NanoXLSX.Compatibility.Test
             Assert.Equal("[1]Sheet1!A1", GetResolved(workbook, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY, "0:A1").Expression);
         }
 
-
-
-        [Fact]
+        [Fact (DisplayName ="Test of the failed resolution when multiple URIs for a link are defined but the only difference are ambiguous path separators")]
         public void RejectsSeparatorAliasesThatCollapseAcrossLinksTest()
         {
             Workbook workbook = new Workbook("Sheet1");
@@ -167,8 +191,7 @@ namespace NanoXLSX.Compatibility.Test
                 "..\\book.xlsx"));
         }
 
-
-        [Fact]
+        [Fact (DisplayName ="Test of the preference of a FormulaData object on the resolution of links on cell formulas")]
         public void PrefersNestedFormulaExpressionWhenCellValueDiffersTest()
         {
             Workbook workbook = new Workbook("Sheet1");
@@ -185,7 +208,7 @@ namespace NanoXLSX.Compatibility.Test
             Assert.Equal(formulaExpression, cell.Formula.Expression);
         }
 
-        [Fact]
+        [Fact (DisplayName ="Test of the fallback to the cell value when no FormulaData object was defined, on the resolution of links on cell formulas")]
         public void FallsBackToCellValueOnlyWhenFormulaObjectIsNullTest()
         {
             Workbook workbook = new Workbook("Sheet1");
@@ -201,15 +224,14 @@ namespace NanoXLSX.Compatibility.Test
             Assert.Null(cell.Formula);
         }
 
-
-        [Fact]
+        [Fact (DisplayName ="Test of non-resolution of links on cell formulas if the formula expression was set to a defined name afterwards")]
         public void UsesDefinedNameReferenceInsteadOfFormulaExpressionTest()
         {
             Workbook workbook = new Workbook("Sheet1");
             DefinedName definedName = workbook.AddDefinedNameFormula("LocalFormula", "1+1");
             workbook.CurrentWorksheet.AddCellFormula("..\\[book.xlsx]Sheet1!A1", "A1");
             Cell cell = workbook.CurrentWorksheet.GetCell(0, 0);
-            cell.Formula.DefinedNameReference = definedName; // Overwrites formula with ext. link
+            cell.Formula.DefinedNameReference = definedName; // Forces the formula to use a defined name
 
             Execute(workbook, "../book.xlsx");
 
@@ -218,9 +240,8 @@ namespace NanoXLSX.Compatibility.Test
             Assert.Same(definedName, cell.Formula.DefinedNameReference);
         }
 
-
-        [Fact]
-        public void UsesCollisionFreeKeysForScopedNamesAndWorksheetCellsTest()
+        [Fact (DisplayName ="Test of the resolution of external links on multiple worksheets for defined names")]
+        public void UsesCollisionFreeKeysForScopedNamesTest()
         {
             Workbook workbook = new Workbook();
             Worksheet firstSheet = new Worksheet("First");
@@ -230,20 +251,33 @@ namespace NanoXLSX.Compatibility.Test
             const string expression = "..\\[book.xlsx]Data!A1";
             workbook.AddDefinedNameFormula("ScopedName", expression, firstSheet);
             workbook.AddDefinedNameFormula("ScopedName", expression, secondSheet);
-            firstSheet.AddCellFormula(expression, "A1");
-            secondSheet.AddCellFormula(expression, "A1");
 
             Execute(workbook, "../book.xlsx");
 
             Assert.Equal("[1]Data!A1", GetResolved(workbook, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_DEFINED_NAMES_ENTITY, "0").Expression);
             Assert.Equal("[1]Data!A1", GetResolved(workbook, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_DEFINED_NAMES_ENTITY, "1").Expression);
+        }
+
+        [Fact(DisplayName = "Test of the resolution of external links on multiple worksheets for cell formulas")]
+        public void UsesCollisionFreeKeysForWorksheetCellsTest()
+        {
+            Workbook workbook = new Workbook();
+            Worksheet firstSheet = new Worksheet("First");
+            Worksheet secondSheet = new Worksheet("Second");
+            workbook.AddWorksheet(firstSheet);
+            workbook.AddWorksheet(secondSheet);
+            const string expression = "..\\[book.xlsx]Data!A1";
+            firstSheet.AddCellFormula(expression, "A1");
+            secondSheet.AddCellFormula(expression, "A1");
+
+            Execute(workbook, "../book.xlsx");
+
             Assert.Equal("[1]Data!A1", GetResolved(workbook, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY, "0:A1").Expression);
             Assert.Equal("[1]Data!A1", GetResolved(workbook, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY, "1:A1").Expression);
         }
 
 
-
-        [Fact]
+        [Fact (DisplayName ="Test of non-resolution of external links on cell formulas when the formula was (forced) to null")]
         public void DoesNotFallBackToCellValueWhenFormulaExpressionIsNullTest()
         {
             Workbook workbook = new Workbook("Sheet1");
@@ -260,8 +294,7 @@ namespace NanoXLSX.Compatibility.Test
             Assert.Null(cell.Formula.Expression);
         }
 
-
-        [Fact]
+        [Fact (DisplayName ="Test of the non-resolution of formulas without links and unrelated cell content (strings)")]
         public void IgnoresUnmatchedEmptyAndNonFormulaContent()
         {
             Workbook workbook = new Workbook("Sheet1");
@@ -270,8 +303,8 @@ namespace NanoXLSX.Compatibility.Test
 
             Execute(workbook, "../book.xlsx");
 
-            Assert.Null(GetResolved(workbook, "1", "cell:0:A1"));
-            Assert.Null(GetResolved(workbook, "1", "cell:0:A2"));
+            Assert.Null(GetResolved(workbook, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY, "0:A1"));
+            Assert.Null(GetResolved(workbook, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY, "0:A2"));
 
             Workbook noLinksWorkbook = new Workbook("Sheet1");
             noLinksWorkbook.CurrentWorksheet.AddCellFormula("..\\[book.xlsx]Sheet1!A1", "A1");
