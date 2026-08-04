@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace NanoXLSX.Compatibility.Test
@@ -80,7 +76,7 @@ namespace NanoXLSX.Compatibility.Test
             ExternalLink link = new ExternalLink();
             link.AddUri(uri);
             Assert.Single(link.Uris);
-            Assert.Equal(uri, link.Uris[0]); 
+            Assert.Equal(uri, link.Uris[0]);
         }
 
         [Fact(DisplayName = "Test of the AddUri method on multiple values")]
@@ -220,7 +216,9 @@ namespace NanoXLSX.Compatibility.Test
             Assert.Throws<ArgumentException>(() => { link.GetWorksheet("ext2"); });
         }
 
-        [Fact(DisplayName = "Test of the CreateBuilder method")]
+        #region builderTests
+
+        [Fact(DisplayName = "Test of the CreateBuilder method in ExternalLink")]
         public void CreateBuilderTest()
         {
             ExternalLink link = new ExternalLink();
@@ -228,6 +226,198 @@ namespace NanoXLSX.Compatibility.Test
             Assert.NotNull(builder);
             Assert.IsType<ExternalLinkBuilder>(builder);
         }
+
+        [Fact(DisplayName = "Test of the external link passing function of the builder")]
+        public void BuilderAddExternalLinkTest()
+        {
+            ExternalLink link = new ExternalLink();
+            ExternalLinkBuilder builder = link.CreateBuilder();
+            ExternalLink extLink = new ExternalLink("uri1");
+            ExternalLinkBuilder passed = new ExternalLinkBuilder(extLink);
+            ExternalLink result = passed.Build();
+            Assert.NotNull(result);
+            Assert.Equal("uri1", result.Uris[0]);
+        }
+
+        [Fact(DisplayName = "Test of the failing external link passing function of the builder on null")]
+        public void BuilderAddExternalLinkFailTest()
+        {
+            Assert.Throws<ArgumentException>(() => { var builder = new ExternalLinkBuilder(null); });
+        }
+
+        [Fact(DisplayName = "Test of the external link builder function for URIs")]
+        public void BuilderUriTest()
+        {
+            ExternalLink link = new ExternalLink();
+            ExternalLinkBuilder builder = link.CreateBuilder();
+            builder = builder.AddUri("uri1").AddUri("uri2");
+            ExternalLink result = builder.Build();
+            Assert.Equal(2, result.Uris.Count);
+            Assert.Equal("uri1", result.Uris[0]);
+            Assert.Equal("uri2", result.Uris[1]);
+        }
+
+        [Theory(DisplayName = "Test of the failing external link builder function for URIs on invalid values")]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData(" ")]
+        [InlineData("   ")]
+        [InlineData("\t")]
+        public void BuilderFailingUriTest(string uri)
+        {
+            ExternalLink link = new ExternalLink();
+            ExternalLinkBuilder builder = link.CreateBuilder();
+            Assert.Throws<ArgumentException>(() => { builder.AddUri("a").AddUri(uri); });
+        }
+
+        [Fact(DisplayName = "Test of the external link builder function for adding worksheets")]
+        public void BuilderWorksheetTest()
+        {
+            ExternalLink link = new ExternalLink();
+            ExternalLinkBuilder builder = link.CreateBuilder();
+            builder = builder.AddWorksheet("ws1").AddWorksheet("ws2");
+            ExternalLink result = builder.Build();
+            Assert.Equal(2, result.Worksheets.Count);
+            Assert.Equal("ws1", result.Worksheets[0].Name);
+            Assert.Equal("ws2", result.Worksheets[1].Name);
+        }
+
+        [Theory(DisplayName = "Test of the failing external link builder function for adding worksheets on invalid values")]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData(" ")]
+        [InlineData("   ")]
+        [InlineData("\t")]
+        [InlineData("a")] // duplicate
+        public void BuilderFailingWorksheetTest(string name)
+        {
+            ExternalLink link = new ExternalLink();
+            ExternalLinkBuilder builder = link.CreateBuilder();
+            Assert.ThrowsAny<Exception>(() => { builder.AddWorksheet("a").AddWorksheet(name); });
+        }
+
+        [Fact(DisplayName = "Test of the external link builder function for using worksheets")]
+        public void BuilderUseWorksheetTest()
+        {
+            ExternalLink link = new ExternalLink();
+            ExternalLinkBuilder builder = link.CreateBuilder();
+            builder = builder.AddWorksheet("ws1").AddWorksheet("ws2");
+            builder.UseWorksheet("ws1");
+            builder.AddCell("A1", "test");
+            ExternalLink result = builder.Build();
+
+            Assert.Equal(2, result.Worksheets.Count);
+            Assert.Equal("ws1", result.Worksheets[0].Name);
+            Assert.Equal("ws2", result.Worksheets[1].Name);
+            Assert.Empty(result.Worksheets[1].Cells);
+            Assert.Equal(1, result.Worksheets[0].Cells.Count);
+            Assert.NotNull(result.Worksheets[0].Cells[new Address("A1")]);
+            Assert.Equal("test", result.Worksheets[0].Cells[new Address("A1")].Value);
+        }
+
+        [Fact(DisplayName = "Test of the external link builder function for using worksheets automatically on add")]
+        public void BuilderUsingAddedWorksheetTest()
+        {
+            ExternalLink link = new ExternalLink();
+            ExternalLinkBuilder builder = link.CreateBuilder();
+            builder = builder.AddWorksheet("ws1").AddWorksheet("ws2");
+            builder.AddCell("A1", "test");
+            ExternalLink result = builder.Build();
+
+            Assert.Equal(2, result.Worksheets.Count);
+            Assert.Equal("ws1", result.Worksheets[0].Name);
+            Assert.Equal("ws2", result.Worksheets[1].Name);
+            Assert.Empty(result.Worksheets[0].Cells);
+            Assert.Equal(1, result.Worksheets[1].Cells.Count);
+            Assert.NotNull(result.Worksheets[1].Cells[new Address("A1")]);
+            Assert.Equal("test", result.Worksheets[1].Cells[new Address("A1")].Value);
+        }
+
+        [Theory(DisplayName = "Test of the failing external link builder function for using worksheets on a invalid value")]
+        [InlineData("")]
+        [InlineData(null)]
+        [InlineData(" ")]
+        [InlineData("ws3")]
+        public void BuilderUseWorksheetFailTest(string name)
+        {
+            ExternalLink link = new ExternalLink();
+            ExternalLinkBuilder builder = link.CreateBuilder();
+            builder = builder.AddWorksheet("ws1").AddWorksheet("ws2");
+            Assert.ThrowsAny<Exception>(() => { builder.UseWorksheet(name); });
+        }
+
+        [Fact(DisplayName = "Test of the external link builder function for adding cells")]
+        public void BuilderAddCellTest()
+        {
+            ExternalLink link = new ExternalLink();
+            ExternalLinkBuilder builder = link.CreateBuilder();
+            builder = builder.AddWorksheet("ws1");
+            builder.AddCell("A1", "test");
+            builder.AddCell("B2", "test2");
+            ExternalLink result = builder.Build();
+
+            Assert.Equal(2, result.Worksheets[0].Cells.Count);
+            Assert.NotNull(result.Worksheets[0].Cells[new Address("A1")]);
+            Assert.Equal("test", result.Worksheets[0].Cells[new Address("A1")].Value);
+            Assert.NotNull(result.Worksheets[0].Cells[new Address("B2")]);
+            Assert.Equal("test2", result.Worksheets[0].Cells[new Address("B2")].Value);
+        }
+
+        [Fact(DisplayName = "Test of the external link builder function for adding cells (overload)")]
+        public void BuilderAddCellTest2()
+        {
+            ExternalLink link = new ExternalLink();
+            ExternalLinkBuilder builder = link.CreateBuilder();
+            builder = builder.AddWorksheet("ws1");
+            builder.AddCell("A1", "C1", ExternalCellValue.DataType.Formula);
+            builder.AddCell("B2", "TRUE", ExternalCellValue.DataType.Boolean);
+            ExternalLink result = builder.Build();
+
+            Assert.Equal(2, result.Worksheets[0].Cells.Count);
+            Assert.NotNull(result.Worksheets[0].Cells[new Address("A1")]);
+            Assert.Equal("C1", result.Worksheets[0].Cells[new Address("A1")].Value);
+            Assert.Equal(ExternalCellValue.DataType.Formula, result.Worksheets[0].Cells[new Address("A1")].Type);
+            Assert.NotNull(result.Worksheets[0].Cells[new Address("B2")]);
+            Assert.Equal("TRUE", result.Worksheets[0].Cells[new Address("B2")].Value);
+            Assert.Equal(ExternalCellValue.DataType.Boolean, result.Worksheets[0].Cells[new Address("B2")].Type);
+        }
+
+        [Fact(DisplayName = "Test of the failing external link builder function for adding cells on no worksheets")]
+        public void BuilderAddCellFailTest()
+        {
+            ExternalLink link = new ExternalLink();
+            ExternalLinkBuilder builder = link.CreateBuilder();
+            Assert.Throws<ArgumentException>(() => { builder.AddCell("A1", "test"); });
+        }
+
+        [Fact(DisplayName = "Test of the failing external link builder function overload for adding cells on no worksheets")]
+        public void BuilderAddCellFailTest2()
+        {
+            ExternalLink link = new ExternalLink();
+            ExternalLinkBuilder builder = link.CreateBuilder();
+            Assert.Throws<ArgumentException>(() => { builder.AddCell("A1", "42", ExternalCellValue.DataType.Number); });
+        }
+
+
+        [Theory(DisplayName = "Test of the failing external link builder function for adding cells on invalid values")]
+        [InlineData("ZZZZZ1", "test")]
+        [InlineData("A0", "test")]
+        [InlineData("A99999999999999", "test")]
+        [InlineData("A-5", "test")]
+        [InlineData("_A1", "test")]
+        [InlineData(null, "test")]
+        [InlineData("", "test")]
+        [InlineData("0", "test")]
+        public void BuilderAddCellFailTest3(string address, string value)
+        {
+            ExternalLink link = new ExternalLink();
+            ExternalLinkBuilder builder = link.CreateBuilder();
+            builder.AddWorksheet("ws1");
+            Assert.ThrowsAny<Exception>(() => { builder.AddCell(address, value); });
+        }
+
+
+        #endregion
 
 
     }
