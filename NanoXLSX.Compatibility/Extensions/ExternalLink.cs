@@ -80,7 +80,7 @@ namespace NanoXLSX
         {
             if (definedName == null)
             {
-                throw new FormatException("An external defined name cannot be null");
+                throw new ArgumentException("An external defined name cannot be null");
             }
 
             if (definedNames.Any(

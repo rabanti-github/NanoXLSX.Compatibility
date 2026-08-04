@@ -40,7 +40,7 @@ namespace NanoXLSX
         /// </summary>
         public string Value { get; private set; }
         /// <summary>
-        /// Type of the external, cached cell value. If not specified, the default <see cref="DataType.Number"/> will be used
+        /// Type of the external, cached cell value. If not specified, the default <see cref="DataType.SharedString"/> will be used
         /// </summary>
         /// \Remark <remarks>References pointing to string values in cells are often specified by Excel as <see cref="DataType.Formula"/> although no actual formula is in place</remarks>
 
@@ -49,14 +49,14 @@ namespace NanoXLSX
         /// <summary>
         /// Constructor with value and type
         /// </summary>
-        /// <param name="value">Value as string representation. Null will be transformed to the type <see cref="DataType.Empty"/>. The cached value will be "0" in this case</param>
+        /// <param name="value">Value as string representation. Null will be transformed to the type <see cref="DataType.Empty"/>. The cached value will be an empty string in this case</param>
         /// <param name="type">Type of the external cell</param>
         /// \Remark <remarks>The validity of the passed string representation of a number is not checked. The type <see cref="DataType.Empty"/> will discard the passed value</remarks>
         public ExternalCellValue(string value, DataType type)
         {
             if (value == null || type == DataType.Empty)
             {
-                Value = "0";
+                Value = "";
                 Type = DataType.Empty;
             }
             else
@@ -67,10 +67,10 @@ namespace NanoXLSX
         }
 
         /// <summary>
-        /// Constructor with value. The type <see cref="DataType.Number"/> will be used as default type
+        /// Constructor with value. The type <see cref="DataType.SharedString"/> will be used as default type
         /// </summary>
-        /// <param name="value">Value as string representation. Null will be transformed to the type <see cref="DataType.Empty"/>. The cached value will be "0" case</param>
+        /// <param name="value">Value as string representation. Null will be transformed to the type <see cref="DataType.Empty"/>. The cached value will be an empty string in this case</param>
         /// \Remark <remarks>The validity of the passed string representation of a number is not checked.</remarks>
-        public ExternalCellValue(string value) : this(value, DataType.Number) { }
+        public ExternalCellValue(string value) : this(value, DataType.SharedString) { }
     }
 }
