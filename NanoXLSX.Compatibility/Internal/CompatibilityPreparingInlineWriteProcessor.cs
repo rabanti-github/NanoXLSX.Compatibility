@@ -179,7 +179,7 @@ namespace NanoXLSX.Internal
                 }
                 if (candidate.LinkIndexes.Count > 1)
                 {
-                    ThrowAmbiguousReference(sourceInfo, candidate.Text, candidate.LinkIndexes);
+                    throw GetAmbiguousReference(sourceInfo, candidate.Text, candidate.LinkIndexes);
                 }
 
                 int linkIndex = candidate.LinkIndexes[0];
@@ -228,7 +228,7 @@ namespace NanoXLSX.Internal
                         string.Equals(candidate.Text, matchedText, StringComparison.Ordinal));
                     if (!hasExactCandidate)
                     {
-                        ThrowAmbiguousReference(sourceInfo, matchedText, indexes);
+                        throw GetAmbiguousReference(sourceInfo, matchedText, indexes);
                     }
                     position += representative.Length;
                 }
@@ -236,19 +236,16 @@ namespace NanoXLSX.Internal
         }
 
         /// <summary>
-        /// Method to throw an exception if the external links could not be clearly identified from a source (defined name or cell formula)
+        /// Method to create an exception if the external links could not be clearly identified from a source (defined name or cell formula)
         /// </summary>
         /// <param name="sourceInfo">Info object with human readable texts for exception outputs</param>
         /// <param name="matchedText">Text that contains ambiguities</param>
-        /// <param name="linkIndexes">Indices with indices of link candidated</param>
-        /// <exception cref="NotSupportedContentException">Thrown as result of the method</exception>
-        private static void ThrowAmbiguousReference(
-            SourceInfo sourceInfo,
-            string matchedText,
-            IEnumerable<int> linkIndexes)
+        /// <param name="linkIndexes">Indices with indices of link candidates</param>
+        /// <returns>Returns a <see cref="NotSupportedContentException"/></returns>
+        private static NotSupportedContentException GetAmbiguousReference(SourceInfo sourceInfo, string matchedText, IEnumerable<int> linkIndexes)
         {
             string indexes = string.Join(", ", linkIndexes.Select(ParserUtils.ToString));
-            throw new NotSupportedContentException(
+            return new NotSupportedContentException(
                 "The " + sourceInfo.SourceKind + " '" + sourceInfo.SourceIdentifier + "' contains the ambiguous external link '" +
                 matchedText + "', which matches external link indexes " + indexes + ".");
         }
@@ -290,94 +287,114 @@ namespace NanoXLSX.Internal
         }
 
         /// <summary>
-        /// Method to analyze a URI for possible external links, represented by a file or full file path
+        /// Analyzes a URI or path and creates possible representations used in Excel formulas and defined names.
         /// </summary>
-        /// <param name="uriText">Raw text of the URI</param>
-        /// <returns></returns>
+        /// <param name="uriText">Raw URI or path text.</param>
+        /// <returns>A set containing possible formula path representations.</returns>
         private static HashSet<string> CreateUriCandidates(string uriText)
         {
-            HashSet<string> paths = new HashSet<string>(StringComparer.Ordinal);
-            if (string.IsNullOrWhiteSpace(uriText))
+            HashSet<string> candidates = new HashSet<string>(StringComparer.Ordinal);
+            string value = uriText.Trim(); // Should already be sanitized
+
+            bool isAbsoluteUri = Uri.TryCreate(value, UriKind.Absolute, out Uri uri);
+
+            if (isAbsoluteUri && uri.IsFile)
             {
-                return paths;
+                string filePath = GetFilePathCandidate(uri);
+                AddPathCandidates(candidates, filePath, true);
+                return candidates;
             }
 
-            string value = uriText.Trim();
-            if (Uri.TryCreate(value, UriKind.Absolute, out Uri uri) && uri.IsFile)
-            {
-                string localPath = Uri.UnescapeDataString(uri.LocalPath);
-                if (!string.IsNullOrEmpty(uri.Host) && !uri.IsLoopback)
-                {
-                    string normalizedLocalPath = localPath.Replace('\\', '/');
-                    string hostPrefix = "//" + uri.Host + "/";
-                    if (!normalizedLocalPath.StartsWith(hostPrefix, StringComparison.OrdinalIgnoreCase))
-                    {
-                        normalizedLocalPath = hostPrefix + normalizedLocalPath.TrimStart('/');
-                    }
-                    localPath = normalizedLocalPath;
-                }
-                AddPathCandidates(paths, localPath, true);
-
-                string absolutePath = Uri.UnescapeDataString(uri.AbsolutePath);
-                if (!string.IsNullOrEmpty(uri.Host) && !uri.IsLoopback)
-                {
-                    absolutePath = "//" + uri.Host + "/" + absolutePath.TrimStart('/');
-                }
-                if (absolutePath.Length >= 3 && absolutePath[0] == '/' &&
-                    char.IsLetter(absolutePath[1]) && absolutePath[2] == ':')
-                {
-                    absolutePath = absolutePath.Substring(1);
-                }
-                AddPathCandidates(paths, absolutePath, true);
-            }
-            else
-            {
-                bool addSeparatorAliases = !Uri.TryCreate(value, UriKind.Absolute, out Uri absoluteUri)
-                    || absoluteUri.IsFile;
-                AddPathCandidates(paths, value, addSeparatorAliases);
-            }
-            return paths;
+            // For relative paths or strings that are not valid absolute URIs, create slash and backslash aliases.
+            // For absolute non-file URIs, preserve the original separator form.
+            bool addSeparatorAliases = !isAbsoluteUri;
+            AddPathCandidates(candidates, value, addSeparatorAliases);
+            return candidates;
         }
 
         /// <summary>
-        /// Adds a possible formula path to the set of candidates. 
-        /// Formula paths are converted from the valid form (_PATH_) to the Excel formula representation ([_PATH_]).
-        /// This converted form should match with external link expressions in defined names or formulas
+        /// Converts a file URI to one normalized path representation.
         /// </summary>
-        /// <param name="candidates">Reference to possible paths (hash set)</param>
-        /// <param name="path">Raw path expression</param>
-        /// <param name="addSeparatorAliases">If true, additional variants of a path with '\' and '/' are added. 
-        /// The hash set will automatically remove duplicates</param>
+        /// <param name="uri">Absolute file URI.</param>
+        /// <returns>
+        /// The normalized path, or null if the URI does not contain a file path.
+        /// </returns>
+        private static string GetFilePathCandidate(Uri uri)
+        {
+            // AbsolutePath is used instead of processing both LocalPath and AbsolutePath.
+            // This avoids generating mostly redundant candidates. AbsolutePath is still URI-escaped and must therefore be decoded.
+            string path = Uri.UnescapeDataString(uri.AbsolutePath).Replace('\\', '/');
+
+            bool isRemoteFile = !string.IsNullOrEmpty(uri.Host) && !uri.IsLoopback;
+
+            if (isRemoteFile)
+            {
+                string remotePath = path.TrimStart('/');
+
+                // "file://server" does not identify a file. Returning null is intentional; AddPathCandidates handles it.
+                if (remotePath.Length == 0)
+                {
+                    return null;
+                }
+                return "//" + uri.Host + "/" + remotePath;
+            }
+
+            // A Windows drive path in a file URI commonly has this form: "/C:/directory/file.xlsx". Remove the URI-specific leading slash.
+            if (path.Length >= 3 && path[0] == '/' && char.IsLetter(path[1]) && path[2] == ':')
+            {
+                path = path.Substring(1);
+            }
+            return path;
+        }
+
+        /// <summary>
+        /// Adds a possible formula path to the set of candidates.
+        /// </summary>
+        /// <param name="candidates">Target candidate collection.</param>
+        /// <param name="path">Raw path expression.</param>
+        /// <param name="addSeparatorAliases">
+        /// If true, variants using forward and backward slashes are added.
+        /// </param>
         private static void AddPathCandidates(HashSet<string> candidates, string path, bool addSeparatorAliases)
         {
             string formulaPath = ToFormulaPath(path);
-            if (string.IsNullOrEmpty(formulaPath))
+
+            // HashSet<string> permits null values in these target frameworks. Therefore the null check must happen before candidates.Add().
+
+            if (formulaPath == null)
             {
                 return;
             }
             candidates.Add(formulaPath);
-            if (addSeparatorAliases)
+            if (!addSeparatorAliases)
             {
-                candidates.Add(formulaPath.Replace('\\', '/'));
-                candidates.Add(formulaPath.Replace('/', '\\'));
+                return;
             }
+            candidates.Add(formulaPath.Replace('\\', '/'));
+            candidates.Add(formulaPath.Replace('/', '\\'));
         }
 
         /// <summary>
-        /// Converts a valid path (_PATH_) to its Excel formula representation ([_PATH_])
+        /// Converts a path to its Excel formula representation.
         /// </summary>
-        /// <param name="path">Path to convert</param>
-        /// <returns>Converted path or null, if no valid path was passed</returns>
+        /// <param name="path">Path to convert.</param>
+        /// <returns>
+        /// The converted path, or null if the value does not contain a filename.
+        /// </returns>
         private static string ToFormulaPath(string path)
         {
             if (string.IsNullOrWhiteSpace(path))
             {
                 return null;
             }
+
             string value = path.Trim();
+
             int separator = Math.Max(value.LastIndexOf('/'), value.LastIndexOf('\\'));
+
             string directory;
             string filename;
+
             if (separator >= 0)
             {
                 directory = value.Substring(0, separator + 1);
@@ -389,14 +406,18 @@ namespace NanoXLSX.Internal
                 filename = value;
             }
 
+            //A path ending with a separator denotes a directory or host, not a file.
+
             if (filename.Length == 0)
             {
                 return null;
             }
+
             if (filename[0] == '[' && filename[filename.Length - 1] == ']')
             {
                 return value;
             }
+
             return directory + "[" + filename + "]";
         }
 
