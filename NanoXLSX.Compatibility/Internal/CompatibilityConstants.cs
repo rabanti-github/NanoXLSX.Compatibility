@@ -26,5 +26,10 @@ namespace NanoXLSX.Internal
         /// Entity ID for resolved formulas
         /// </summary>
         public const string EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY = "external-link-resolved-formulas-entity";
+
+        /// <summary>
+        /// Entity ID for external reference workbook relationship IDs
+        /// </summary>
+        public const string EXTERNAL_REFERENCE_WORKBOOK_RID_ENTITY = "external-reference-workbook-rid-entity";
     }
 }

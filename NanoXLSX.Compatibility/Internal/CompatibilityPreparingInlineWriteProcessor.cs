@@ -15,7 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace NanoXLSX.Internal
+namespace NanoXLSX.Internal.Writers
 {
     /// <summary>
     /// Class responsible to prepare the workbook for its compatibility features to be written to a XLSX file

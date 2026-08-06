@@ -29,7 +29,7 @@ namespace NanoXLSX
         /// </summary>
         /// <param name="name">Name of the external defined name</param>
         /// <param name="refersTo">Referenced expression</param>
-        /// <exception cref="FormatException"></exception>
+        /// <exception cref="FormatException">Thrown if the name or refersTo was null, empty or only white spaces</exception>
         public ExternalDefinedName(string name, string refersTo)
         {
             if (string.IsNullOrWhiteSpace(name))

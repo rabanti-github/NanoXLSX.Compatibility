@@ -38,6 +38,33 @@ namespace NanoXLSX
         public IReadOnlyList<ExternalDefinedName> DefinedNames => definedNames;
 
         /// <summary>
+        /// Internal Relationship ID of the external link file in the workbook definition (defines the order / indexer)
+        /// </summary>
+        internal string WorkbookRId { get; set; }
+
+        /// <summary>
+        /// Gets the preferred URI used to identify the external workbook.
+        /// An absolute URI is preferred over a relative URI or file name.
+        /// </summary>
+        public string PreferredUri { get; private set; }
+
+        /// <summary>
+        /// URI, used to replace internal IDs with readable file paths
+        /// </summary>
+        internal string ReadableReferenceToken
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(PreferredUri))
+                {
+                    return null;
+                }
+
+                return "[" + PreferredUri + "]";
+            }
+        }
+
+        /// <summary>
         /// Constructor of an external workbook link.
         /// </summary>
         public ExternalLink()
@@ -92,7 +119,6 @@ namespace NanoXLSX
                 throw new ArgumentException($"The external defined name '{definedName.Name}' already exists.");
             }
             definedNames.Add(definedName);
-            //return this;
         }
 
         /// <summary>
@@ -106,6 +132,7 @@ namespace NanoXLSX
                 throw new ArgumentException("The URI cannot be null or empty");
             }
             uris.Add(uri);
+            PreferredUri = ResolvePreferredUri();
         }
 
         /// <summary>
@@ -119,11 +146,7 @@ namespace NanoXLSX
                 throw new ArgumentException("The worksheet cannot be null");
             }
 
-            if (worksheets.Any(
-                    item => string.Equals(
-                        item.Name,
-                        worksheet.Name,
-                        StringComparison.OrdinalIgnoreCase)))
+            if (worksheets.Any(item => string.Equals(item.Name, worksheet.Name, StringComparison.OrdinalIgnoreCase)))
             {
                 throw new ArgumentException($"The external worksheet '{worksheet.Name}' already exists.");
             }
@@ -136,18 +159,54 @@ namespace NanoXLSX
         /// <param name="name">Name of the external defined name</param>
         public ExternalWorksheet GetWorksheet(string name)
         {
-            ExternalWorksheet worksheet = worksheets.FirstOrDefault(
-                item => string.Equals(
-                    item.Name,
-                    name,
-                    StringComparison.OrdinalIgnoreCase));
-
+            ExternalWorksheet worksheet = worksheets.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase));
             if (worksheet == null)
             {
                 throw new ArgumentException($"The external worksheet '{name}' does not exist.");
             }
-
             return worksheet;
+        }
+
+        private string ResolvePreferredUri()
+        {
+            string fallback = null;
+
+            for (int i = 0; i < uris.Count; i++)
+            {
+                string candidate = uris[i];
+
+                if (string.IsNullOrWhiteSpace(candidate))
+                {
+                    continue;
+                }
+
+                if (fallback == null)
+                {
+                    fallback = candidate;
+                }
+
+                if (IsAbsoluteWorkbookLocation(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            return fallback;
+        }
+
+        private static bool IsAbsoluteWorkbookLocation(string value)
+        {
+            // Windows drive path: C:\Folder\Workbook.xlsx
+            if (value.Length >= 3 && char.IsLetter(value[0]) && value[1] == ':' && (value[2] == '\\' || value[2] == '/'))
+            {
+                return true;
+            }
+            // UNC path: \\Server\Share\Workbook.xlsx
+            if (value.StartsWith(@"\\", StringComparison.Ordinal))
+            {
+                return true;
+            }
+            return Uri.TryCreate(value, UriKind.Absolute, out Uri parsedUri) && parsedUri.IsAbsoluteUri;
         }
 
     }
