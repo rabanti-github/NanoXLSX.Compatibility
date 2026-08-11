@@ -36,7 +36,10 @@ namespace NanoXLSX.Internal.Readers
             Dictionary<string, ExternalLink> externalReferences = new Dictionary<string, ExternalLink>();
             Dictionary<string, DefinedName> replacementMap = new Dictionary<string, DefinedName>();
             PrepareUpdateDefinedNames(externalLinks, externalReferenceRids, externalReferences, replacementMap);
-            UpdateCellFormulas(externalReferences, replacementMap);
+            if (Workbook.Features.ContainsWorksheetFormulas && externalReferences.Count != 0 && replacementMap.Count > 0)
+            {
+                UpdateCellFormulas(externalReferences, replacementMap);
+            }
             UpdateDefinedNames(replacementMap);
 
         }
@@ -53,17 +56,18 @@ namespace NanoXLSX.Internal.Readers
                 string rId = "[" + ParserUtils.ToString(i) + "]";
                 externalReferences[rId] = link;
             }
-            foreach (DefinedName defiedName in Workbook.GetDefinedNames())
+            IReadOnlyList<DefinedName> definedNames = Workbook.GetDefinedNames();
+            for (int i = 0; i < definedNames.Count; i++)
             {
-                if (defiedName.HasExternalReferences && defiedName.Type == DefinedName.NameType.Formula)
+                DefinedName defiedName = definedNames[i];
+                if (defiedName.Features.ContainsExternalLinks)
                 {
                     if (DetectExternalLinkId(defiedName.TextValue))
                     {
                         string replacedExpression = ReplaceExternalLinkId(defiedName.TextValue, externalReferences);
-                        DefinedName newDefinedName = new DefinedName(Workbook, defiedName.Type, defiedName.Name, replacedExpression, defiedName.TargetWorksheet, defiedName.LocalSheet, defiedName.Comment);
-                        newDefinedName.HasExternalReferences = true; // Overwrite
+                        defiedName.ReplaceExpression(replacedExpression);
                         string id = GetDefinedNameId(defiedName);
-                        replacementMap[id] = newDefinedName;
+                        replacementMap[id] = defiedName;
                     }
                 }
             }
@@ -71,10 +75,6 @@ namespace NanoXLSX.Internal.Readers
 
         private void UpdateCellFormulas(Dictionary<string, ExternalLink> externalReferences, Dictionary<string, DefinedName> replacementMap)
         {
-            if (externalReferences.Count == 0 && replacementMap.Count == 0) 
-            {
-                return; // No external links or defined names to be changed
-            }
             foreach (Worksheet worksheet in Workbook.Worksheets)
             {
                 foreach (KeyValuePair<string, Cell> cell in worksheet.Cells)
@@ -107,7 +107,7 @@ namespace NanoXLSX.Internal.Readers
                                 cell.Value.Formula.Expression = replacement;
                                 cell.Value.Formula.HasExternalReferences = true;
                             }
-                            if (replacementMap.Count > 0 && cell.Value.Formula.DefinedNameReference != null) 
+                            if (replacementMap.Count > 0 && cell.Value.Formula.DefinedNameReference != null)
                             {
                                 string id = GetDefinedNameId(cell.Value.Formula.DefinedNameReference);
                                 if (replacementMap.TryGetValue(id, out DefinedName newValue))
@@ -178,7 +178,7 @@ namespace NanoXLSX.Internal.Readers
         internal static bool DetectExternalLinkId(string expression, string targetId)
         {
             if (targetId != null &&
-                !IsValidExternalLinkId(targetId))
+                !ParserUtils.IsValidExternalLinkId(targetId))
             {
                 throw new ArgumentException(
                     $"The target ID '{targetId}' is not a valid external link ID.",
@@ -246,7 +246,7 @@ namespace NanoXLSX.Internal.Readers
                     continue;
                 }
 
-                if (!TryReadExternalLinkId(
+                if (!ParserUtils.TryReadExternalLinkId(
                         expression,
                         i,
                         out int identifierLength))
@@ -327,7 +327,7 @@ namespace NanoXLSX.Internal.Readers
                     continue;
                 }
 
-                if (!TryReadExternalLinkId(
+                if (!ParserUtils.TryReadExternalLinkId(
                     expression,
                     i,
                     out int identifierLength))
@@ -393,182 +393,6 @@ namespace NanoXLSX.Internal.Readers
             return builder.ToString();
         }
 
-        private static bool IsValidExternalLinkId(string identifier)
-        {
-            if (string.IsNullOrEmpty(identifier) ||
-                identifier.Length < 3 ||
-                identifier[0] != '[' ||
-                identifier[identifier.Length - 1] != ']')
-            {
-                return false;
-            }
-
-            for (int i = 1; i < identifier.Length - 1; i++)
-            {
-                if (!IsAsciiDigit(identifier[i]))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-
-        /// <summary>
-        /// Tries to read an external workbook identifier beginning at the specified position.
-        /// </summary>
-        private static bool TryReadExternalLinkId(string expression, int startIndex, out int identifierLength)
-        {
-            identifierLength = 0;
-
-            if (startIndex < 0 ||
-                startIndex >= expression.Length ||
-                expression[startIndex] != '[')
-            {
-                return false;
-            }
-
-            int currentIndex = startIndex + 1;
-
-            if (currentIndex >= expression.Length ||
-                !IsAsciiDigit(expression[currentIndex]))
-            {
-                return false;
-            }
-
-            do
-            {
-                currentIndex++;
-            }
-            while (currentIndex < expression.Length &&
-                   IsAsciiDigit(expression[currentIndex]));
-
-            if (currentIndex >= expression.Length ||
-                expression[currentIndex] != ']')
-            {
-                return false;
-            }
-
-            int closingBracketIndex = currentIndex;
-
-            if (!HasValidPrefixBoundary(expression, startIndex))
-            {
-                return false;
-            }
-
-            if (!HasValidSuffixBoundary(
-                expression,
-                closingBracketIndex))
-            {
-                return false;
-            }
-
-            identifierLength =
-                closingBracketIndex - startIndex + 1;
-
-            return true;
-        }
-
-        /// <summary>
-        /// Prevents structured references such as Table1[1] from being interpreted as external workbook IDs.
-        /// </summary>
-        private static bool HasValidPrefixBoundary(string expression, int openingBracketIndex)
-        {
-            if (openingBracketIndex == 0)
-            {
-                return true;
-            }
-
-            char previous =
-                expression[openingBracketIndex - 1];
-
-            // Quoted external sheet reference:
-            // '[1]Sheet name'!A1
-            if (previous == '\'')
-            {
-                return true;
-            }
-
-            // Table1[1], SomeName[2], etc.
-            return !IsNameCharacter(previous);
-        }
-
-        /// <summary>
-        /// Ensures that the numeric bracket token is followed by something that can form an external workbook reference.
-        /// </summary>
-        private static bool HasValidSuffixBoundary(string expression, int closingBracketIndex)
-        {
-            int nextIndex = closingBracketIndex + 1;
-
-            if (nextIndex >= expression.Length)
-            {
-                // A bare [1] can be a structured table-column reference.
-                return false;
-            }
-
-            char next = expression[nextIndex];
-
-            // External defined name / workbook prefix:
-            // [1]!ExternalName
-            if (next == '!')
-            {
-                return true;
-            }
-
-            // Broken external sheet reference:
-            // [1]#REF!A1
-            if (next == '#')
-            {
-                return true;
-            }
-
-            // The sheet or external name must immediately follow the ID.
-            if (char.IsWhiteSpace(next))
-            {
-                return false;
-            }
-
-            switch (next)
-            {
-                case '"':
-                case '[':
-                case ']':
-                case '(':
-                case ')':
-                case ',':
-                case ';':
-                case '+':
-                case '-':
-                case '*':
-                case '/':
-                case '^':
-                case '&':
-                case '=':
-                case '<':
-                case '>':
-                case '%':
-                case ':':
-                    return false;
-
-                default:
-                    return true;
-            }
-        }
-
-        private static bool IsNameCharacter(char character)
-        {
-            return char.IsLetterOrDigit(character) ||
-                   character == '_' ||
-                   character == '\\' ||
-                   character == '.';
-        }
-
-        private static bool IsAsciiDigit(char character)
-        {
-            return character >= '0' && character <= '9';
-        }
-
         private Dictionary<string, HashSet<string>> MapRidsToDefinedNames(List<string> rids, IReadOnlyList<DefinedName> definedNames)
         {
             Dictionary<string, HashSet<string>> map = new Dictionary<string, HashSet<string>>();
@@ -576,20 +400,25 @@ namespace NanoXLSX.Internal.Readers
             {
                 return map;
             }
+            List<string> ids = new List<string>();
+            for (int i = 0; i < rids.Count; i++)
+            {
+                ids.Add("[" + ParserUtils.ToString(i) + "]");
+            }
             foreach (DefinedName definedName in definedNames)
             {
                 if (definedName.HasExternalReferences)
                 {
-                    foreach (string rid in rids)
+                    foreach (string id in ids)
                     {
-                        if (DetectExternalLinkId(definedName.TextValue, rid))
+                        if (DetectExternalLinkId(definedName.TextValue, id))
                         {
                             if (!map.TryGetValue(definedName.Name, out HashSet<string> value))
                             {
                                 value = new HashSet<string>();
                                 map.Add(definedName.Name, value);
                             }
-                            value.Add(rid);
+                            value.Add(id);
                         }
                     }
                 }

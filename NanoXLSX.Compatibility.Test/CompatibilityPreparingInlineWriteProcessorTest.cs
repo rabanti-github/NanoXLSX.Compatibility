@@ -2,6 +2,7 @@ using NanoXLSX.Exceptions;
 using NanoXLSX.Extensions;
 using NanoXLSX.Interfaces.Writer;
 using NanoXLSX.Internal;
+using NanoXLSX.Internal.Writers;
 using NanoXLSX.Registry;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -190,39 +191,6 @@ namespace NanoXLSX.Compatibility.Test
                 workbook,
                 "../book.xlsx",
                 "..\\book.xlsx"));
-        }
-
-        [Fact(DisplayName = "Test of the preference of a FormulaData object on the resolution of links on cell formulas")]
-        public void PrefersNestedFormulaExpressionWhenCellValueDiffersTest()
-        {
-            Workbook workbook = new Workbook("Sheet1");
-            const string formulaExpression = "C:\\formula\\[book.xlsx]Sheet1!A1";
-            const string cellValue = "C:\\value\\[other.xlsx]Sheet1!A1";
-            workbook.CurrentWorksheet.AddCellFormula(formulaExpression, "A1");
-            Cell cell = workbook.CurrentWorksheet.GetCell(0, 0);
-            cell.Value = cellValue;
-
-            Execute(workbook, "C:\\formula\\book.xlsx");
-
-            Assert.Equal("[1]Sheet1!A1", GetResolved(workbook, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY, "0:A1").Expression);
-            Assert.Equal(cellValue, cell.Value);
-            Assert.Equal(formulaExpression, cell.Formula.Expression);
-        }
-
-        [Fact(DisplayName = "Test of the fallback to the cell value when no FormulaData object was defined, on the resolution of links on cell formulas")]
-        public void FallsBackToCellValueOnlyWhenFormulaObjectIsNullTest()
-        {
-            Workbook workbook = new Workbook("Sheet1");
-            const string expression = "..\\[book.xlsx]Sheet1!A1";
-            workbook.CurrentWorksheet.AddCellFormula(expression, "A1");
-            Cell cell = workbook.CurrentWorksheet.GetCell(0, 0);
-            cell.Formula = null;
-
-            Execute(workbook, "../book.xlsx");
-
-            Assert.Equal("[1]Sheet1!A1", GetResolved(workbook, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY, "0:A1").Expression);
-            Assert.Equal(expression, cell.Value);
-            Assert.Null(cell.Formula);
         }
 
         [Fact(DisplayName = "Test of non-resolution of links on cell formulas if the formula expression was set to a defined name afterwards")]

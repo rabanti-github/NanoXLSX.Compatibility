@@ -42,15 +42,25 @@ namespace NanoXLSX.Internal.Writers
         /// </summary>
         public void Execute()
         {
-            List<ExternalLink> externalLinks = WriteContext.Workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY)
-                .OfType<ExternalLink>()
-                .ToList(); // Returns a null-free list
-            if (externalLinks == null || externalLinks.Count == 0)
+            if (!WriteContext.Workbook.Features.ContainsExternalLinks)
             {
                 return; // No external links to process
             }
-            ResolveExternalLinksFromFormulas(externalLinks);
-            ResolveExternalLinksFromDefinedNames(externalLinks);
+            List<ExternalLink> externalLinks = WriteContext.Workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY)
+                .OfType<ExternalLink>()
+                .ToList(); // Returns a null-free list
+            if (externalLinks == null || externalLinks.Count == 0) // TODO check whether this can be the case
+            {
+                return; // No external links to process
+            }
+            if (WriteContext.Workbook.Features.ContainsWorksheetFormulas && WriteContext.Workbook.Features.ContainsExternalLinks)
+            {
+                ResolveExternalLinksFromFormulas(externalLinks);
+            }
+            if (WriteContext.Workbook.Features.ContainsDefinedNameFormulas && WriteContext.Workbook.Features.ContainsExternalLinks)
+            {
+                ResolveExternalLinksFromDefinedNames(externalLinks);
+            }
             // TODO If other resources contains possibly external links, add further handling here
         }
 
@@ -69,11 +79,15 @@ namespace NanoXLSX.Internal.Writers
             for (int worksheetIndex = 0; worksheetIndex < WriteContext.Workbook.Worksheets.Count; worksheetIndex++)
             {
                 Worksheet worksheet = WriteContext.Workbook.Worksheets[worksheetIndex];
+                if (!worksheet.Features.ContainsExternalLinks)
+                {
+                    continue; // No external links on this worksheet
+                }
                 foreach (Cell cell in worksheet.CellValues)
                 {
-                    if (cell.DataType != Cell.CellType.Formula)
+                    if (cell.DataType != Cell.CellType.Formula || (cell.Formula != null && !cell.Formula.Features.ContainsExternalLinks))
                     {
-                        continue;
+                        continue; // No formula or no external link in formula
                     }
 
                     string expression = GetFormulaExpression(cell);

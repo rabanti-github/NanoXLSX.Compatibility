@@ -15,7 +15,6 @@ namespace NanoXLSX.Compatibility.Test
             link.AddDefinedName("name", "link");
             link.AddWorksheet(ws);
             link.WorkbookRId = "rId5";
-            link.ReadableReferenceToken = "file.xlsx";
 
             Assert.Single(link.Uris);
             Assert.Single(link.DefinedNames);
@@ -25,7 +24,7 @@ namespace NanoXLSX.Compatibility.Test
             Assert.Equal("name", link.DefinedNames[0].Name);
             Assert.Equal("extName", link.Worksheets[0].Name);
             Assert.Equal("rId5", link.WorkbookRId);
-            Assert.Equal("file.xlsx", link.ReadableReferenceToken);
+            Assert.Equal("[uri]", link.ReadableReferenceToken);
         }
 
         [Fact(DisplayName = "Test of the default constructor")]
