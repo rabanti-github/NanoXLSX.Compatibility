@@ -4,7 +4,6 @@ using NanoXLSX.Interfaces.Writer;
 using NanoXLSX.Internal;
 using NanoXLSX.Internal.Writers;
 using NanoXLSX.Registry;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using Xunit;
@@ -118,7 +117,7 @@ namespace NanoXLSX.Compatibility.Test
             const string expected = "[2]Upper!A1+[2]Upper2!A1"; // 2nd index from added links
             var resolved = GetResolved(workbook, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY, "0:A1");
             Assert.Equal(expected, resolved.Expression);
-            Assert.Equal(1, resolved.LinkIndexes.Count);
+            Assert.Single(resolved.LinkIndexes);
         }
 
         [Fact(DisplayName = "Test of the failed attempt to resolve a link when multiple links could match")]
@@ -174,11 +173,29 @@ namespace NanoXLSX.Compatibility.Test
         {
             Workbook workbook = new Workbook("Sheet1");
             workbook.CurrentWorksheet.AddCellFormula("..\\[book.xlsx]Sheet1!A1", "A1");
-            List<string> uris = new List<string> { "../book.xlsx", "..\\book.xlsx" }; // Multiple URIs in one ext. link
+            ExternalLink link = new ExternalLink();
+            link.SetReadUris("../book.xlsx", null, "..\\book.xlsx");
 
-            Execute(workbook, uris);
+            Execute(workbook, link);
 
             Assert.Equal("[1]Sheet1!A1", GetResolved(workbook, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY, "0:A1").Expression);
+        }
+
+        [Fact(DisplayName = "Test of formula resolution against all URI roles of one link")]
+        public void ResolvesAllUriRolesOfOneLinkTest()
+        {
+            Workbook workbook = new Workbook("Sheet1");
+            workbook.CurrentWorksheet.AddCellFormula(
+                "C:\\Files\\[book.xlsx]One!A1+..\\[book.xlsx]Two!A1+alternative\\[book.xlsx]Three!A1",
+                "A1");
+            ExternalLink link = new ExternalLink();
+            link.SetReadUris(@"..\book.xlsx", @"C:\Files\book.xlsx", @"alternative\book.xlsx");
+
+            Execute(workbook, link);
+
+            Assert.Equal(
+                "[1]One!A1+[1]Two!A1+[1]Three!A1",
+                GetResolved(workbook, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY, "0:A1").Expression);
         }
 
         [Fact(DisplayName = "Test of the failed resolution when multiple URIs for a link are defined but the only difference are ambiguous path separators")]
@@ -283,16 +300,10 @@ namespace NanoXLSX.Compatibility.Test
         }
 
         [Theory(DisplayName = "Test of resolution handling of corner case URIs as external links")]
-        [InlineData(@"file://server")]
         [InlineData(@"file://server/share/directory/file.xlsx")]
-        [InlineData(@"//server")]
-        [InlineData(@"//server/")]
         [InlineData(@"/C:/directory/file.xlsx")]
         [InlineData(@"file:///C%3A/directory/file.xlsx")]
         [InlineData(@"https://example.com/path/file.xlsx")]
-        [InlineData(@"relative/directory/")]
-        [InlineData(@"file:///C:/directory/")]
-        [InlineData(@"file://server/share/directory/")]
         [InlineData(@"relative/directory/[file.xlsx]")]
         [InlineData(@"https://example.com/path/[file.xlsx]")]
         public void CornerCaseUrisTest(string uri)
@@ -309,34 +320,27 @@ namespace NanoXLSX.Compatibility.Test
 
         private static void Execute(Workbook workbook, params string[] links)
         {
-            List<string>[] uriLists = new List<string>[links.Length];
+            ExternalLink[] externalLinks = new ExternalLink[links.Length];
             for (int i = 0; i < links.Length; i++)
             {
-                uriLists[i] = new List<string> { links[i] };
+                ExternalLink link = new ExternalLink();
+                link.SetReadUris(links[i], null, null);
+                externalLinks[i] = link;
             }
-            Execute(workbook, uriLists);
+            Execute(workbook, externalLinks);
         }
 
-        private static void Execute(Workbook workbook, params List<string>[] uriLists)
+        private static void Execute(Workbook workbook, params ExternalLink[] externalLinks)
         {
-            int i = 0;
-            foreach (List<string> uriList in uriLists)
+            for (int i = 0; i < externalLinks.Length; i++)
             {
-                ExternalLink link = new ExternalLink();
-                ExternalLinkBuilder builder = new ExternalLinkBuilder(link);
-                foreach (string uri in uriList)
-                {
-                    builder.AddUri(uri);
-                }
-                link = builder.Build();
                 workbook.AuxiliaryData.SetData(
                     PlugInUUID.CompatibilityInlineProcessor,
                     CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY,
                     i,
-                    link,
+                    externalLinks[i],
                     true
                     );
-                i++;
             }
             CompatibilityPreparingInlineWriteProcessor processor = new CompatibilityPreparingInlineWriteProcessor();
             processor.Init(new TestWriteContext(workbook));

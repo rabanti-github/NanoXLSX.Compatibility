@@ -38,18 +38,6 @@ namespace NanoXLSX
         }
 
         /// <summary>
-        /// Adds a URI of the external workbook to the external workbook definition
-        /// </summary>
-        /// <param name="uri"></param>
-        /// <returns></returns>
-        public ExternalLinkBuilder AddUri(string uri)
-        {
-            externalLink.AddUri(uri);
-
-            return this;
-        }
-
-        /// <summary>
         /// Adds a worksheet to the external workbook definition and marks it as currently used worksheet in the builder.
         /// as the current worksheet.
         /// </summary>

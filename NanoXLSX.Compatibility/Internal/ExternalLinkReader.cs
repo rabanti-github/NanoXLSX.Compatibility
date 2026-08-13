@@ -7,7 +7,6 @@ using NanoXLSX.Utils.Xml;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Xml;
 using IOException = NanoXLSX.Exceptions.IOException;
 
@@ -21,8 +20,11 @@ namespace NanoXLSX.Internal.Readers
     {
         #region privateFields
 
-        private readonly List<ExternalLink> externalLinks;
         private Stream stream;
+
+        private const string ExternalLinkPathRelationshipType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/externalLinkPath";
+        private const string OfficeRelationshipNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+        private const string AlternateUrlNamespace = "http://schemas.microsoft.com/office/spreadsheetml/2021/extlinks2021";
 
         #endregion
 
@@ -36,10 +38,7 @@ namespace NanoXLSX.Internal.Readers
         /// </summary>
         public Workbook Workbook { get; set; }
         /// <summary>
-        /// Reference to a ReaderPlugInHandler, to be used for prepending operations in the <see cref="Execute"/> method
-        /// </summary>
-        /// 
-        /// Reference to a ReaderPlugInHandler, to be used for post operations in the <see cref="Execute"/> method
+        /// Reference to a ReaderPlugInHandler, to be used for inline operations in the <see cref="Execute"/> method
         /// </summary>
         public Action<Stream, Workbook, string, IOptions, int?> InlinePluginHandler { get; set; }
 
@@ -59,7 +58,6 @@ namespace NanoXLSX.Internal.Readers
         /// </summary>
         public ExternalLinkReader()
         {
-            externalLinks = new List<ExternalLink>();
         }
         #endregion
 
@@ -86,6 +84,9 @@ namespace NanoXLSX.Internal.Readers
         public void Execute()
         {
             Dictionary<int, ExternalWorksheet> worksheets = new Dictionary<int, ExternalWorksheet>();
+            string targetRelationshipId = null;
+            string absoluteAlternateRelationshipId = null;
+            string relativeAlternateRelationshipId = null;
             try
             {
                 using (XmlReader reader = XmlReader.Create(stream, XmlStreamUtils.CreateSettings()))
@@ -96,31 +97,46 @@ namespace NanoXLSX.Internal.Readers
                         if (XmlStreamUtils.IsElement(reader, "externalBook"))
                         {
                             isExternalBook = true;
+                            targetRelationshipId = reader.GetAttribute("id", OfficeRelationshipNamespace);
                         }
-                        if (isExternalBook && XmlStreamUtils.IsElement(reader, "sheetNames"))
+
+                        if (isExternalBook)
                         {
-                            GetSheeetNames(reader.ReadSubtree(), worksheets);
-                            if (worksheets.Count == 0)
+                            if (reader.NamespaceURI == AlternateUrlNamespace && XmlStreamUtils.IsElement(reader, "absoluteUrl"))
                             {
-                                throw new IOException("No cached worksheets could be determined");
+                                absoluteAlternateRelationshipId = reader.GetAttribute("id", OfficeRelationshipNamespace);
                             }
-                        }
-                        else if (isExternalBook && XmlStreamUtils.IsElement(reader, "sheetDataSet"))
-                        {
-                            GetSheetData(reader.ReadSubtree(), worksheets);
+                            else if (reader.NamespaceURI == AlternateUrlNamespace && XmlStreamUtils.IsElement(reader, "relativeUrl"))
+                            {
+                                relativeAlternateRelationshipId = reader.GetAttribute("id", OfficeRelationshipNamespace);
+                            }
+                            else if (XmlStreamUtils.IsElement(reader, "sheetNames"))
+                            {
+                                GetSheeetNames(reader.ReadSubtree(), worksheets);
+                                if (worksheets.Count == 0)
+                                {
+                                    throw new IOException("No cached worksheets could be determined");
+                                }
+                            }
+                            else if (XmlStreamUtils.IsElement(reader, "sheetDataSet"))
+                            {
+                                GetSheetData(reader.ReadSubtree(), worksheets);
+                            }
                         }
                     }
                 }
                 ExternalLink link = new ExternalLink();
                 RelationshipCatalog discoveryCatalog = Workbook.AuxiliaryData.GetData<RelationshipCatalog>(PlugInUUID.DiscoveryReader, PlugInUUID.DiscoveryCatalogEntity);
-                IReadOnlyList<RelationshipInfo> targets = discoveryCatalog
-                    .GetByType("http://schemas.openxmlformats.org/officeDocument/2006/relationships/externalLinkPath")
-                    .Where(t => t.SourcePartPath == CurrentRelationship.ResolvedTargetPath)
-                    .ToList();
-                foreach (RelationshipInfo target in targets)
+                if (discoveryCatalog == null)
                 {
-                    link.AddUri(target.Target);
+                    throw new IOException("The relationship catalog is not available for the external link.");
                 }
+                string sourcePartPath = CurrentRelationship.ResolvedTargetPath;
+                RelationshipInfo target = GetExternalLinkPathRelationship(discoveryCatalog, sourcePartPath, targetRelationshipId, "target", true);
+                RelationshipInfo absoluteAlternate = GetExternalLinkPathRelationship(discoveryCatalog, sourcePartPath, absoluteAlternateRelationshipId, "absolute alternate", false);
+                RelationshipInfo relativeAlternate = GetExternalLinkPathRelationship(discoveryCatalog, sourcePartPath, relativeAlternateRelationshipId, "relative alternate", false);
+
+                link.SetReadUris(target.Target, absoluteAlternate?.Target, relativeAlternate?.Target);
                 foreach (KeyValuePair<int, ExternalWorksheet> worksheet in worksheets)
                 {
                     link.AddWorksheet(worksheet.Value);
@@ -129,13 +145,41 @@ namespace NanoXLSX.Internal.Readers
 
                 List<ExternalLink> externalLinks = Workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY);
                 int index = externalLinks == null ? 0 : externalLinks.Count;
-                externalLinks.Add(link);
                 Workbook.AuxiliaryData.SetData(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY, index, link, true);
             }
             catch (Exception ex)
             {
                 throw new IOException("The XML entry could not be read from the " + nameof(stream) + ". Please see the inner exception:", ex);
             }
+        }
+
+        private static RelationshipInfo GetExternalLinkPathRelationship(
+            RelationshipCatalog catalog,
+            string sourcePartPath,
+            string relationshipId,
+            string role,
+            bool required)
+        {
+            if (string.IsNullOrEmpty(relationshipId))
+            {
+                if (required)
+                {
+                    throw new IOException("The external-link " + role + " relationship ID is missing.");
+                }
+                return null;
+            }
+
+            RelationshipInfo relationship = catalog.GetBySourceAndId(sourcePartPath, relationshipId);
+            if (relationship == null)
+            {
+                throw new IOException("The external-link " + role + " relationship '" + relationshipId + "' could not be resolved.");
+            }
+            if (!string.Equals(relationship.Type, ExternalLinkPathRelationshipType, StringComparison.Ordinal)
+                || relationship.TargetMode != System.IO.Packaging.TargetMode.External)
+            {
+                throw new IOException("The external-link " + role + " relationship '" + relationshipId + "' has an invalid type or target mode.");
+            }
+            return relationship;
         }
 
         private static void GetSheeetNames(XmlReader sheetNames, Dictionary<int, ExternalWorksheet> worksheets)
@@ -224,11 +268,6 @@ namespace NanoXLSX.Internal.Readers
                 }
             }
         }
-
-        #endregion
-
-        #region sub-classes
-
         #endregion
     }
 

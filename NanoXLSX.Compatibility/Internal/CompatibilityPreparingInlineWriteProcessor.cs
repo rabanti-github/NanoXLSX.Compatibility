@@ -46,20 +46,24 @@ namespace NanoXLSX.Internal.Writers
             {
                 return; // No external links to process
             }
-            List<ExternalLink> externalLinks = WriteContext.Workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY)
-                .OfType<ExternalLink>()
-                .ToList(); // Returns a null-free list
-            if (externalLinks == null || externalLinks.Count == 0) // TODO check whether this can be the case
+            List<ExternalLink> storedExternalLinks = WriteContext.Workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY);
+            if (storedExternalLinks == null)
             {
                 return; // No external links to process
             }
+            List<ExternalLink> externalLinks = storedExternalLinks.OfType<ExternalLink>().ToList(); // Returns a null-free list
+            if (externalLinks.Count == 0)
+            {
+                return; // No external links to process
+            }
+            List<ExternalLinkCandidate> candidates = CreateExternalLinkCandidates(externalLinks);
             if (WriteContext.Workbook.Features.ContainsWorksheetFormulas && WriteContext.Workbook.Features.ContainsExternalLinks)
             {
-                ResolveExternalLinksFromFormulas(externalLinks);
+                ResolveExternalLinksFromFormulas(candidates);
             }
             if (WriteContext.Workbook.Features.ContainsDefinedNameFormulas && WriteContext.Workbook.Features.ContainsExternalLinks)
             {
-                ResolveExternalLinksFromDefinedNames(externalLinks);
+                ResolveExternalLinksFromDefinedNames(candidates);
             }
             // TODO If other resources contains possibly external links, add further handling here
         }
@@ -67,15 +71,14 @@ namespace NanoXLSX.Internal.Writers
         /// <summary>
         /// Method to translate external link expressions (with file name and optional path) in formula cells back to the internal indexer representation (e.g. [1])
         /// </summary>
-        /// <param name="externalLinks">List of ExternalLink objects</param>
+        /// <param name="candidates">External-link formula candidates</param>
         /// \remark <remarks>The method does not overwrite the expression of the defined name. 
         /// It stores the resolved expression in <see cref="Workbook.AuxiliaryData"/> with 
         /// <see cref="PlugInUUID.CompatibilityInlineProcessor"/> as plugin ID, 
         /// <see cref="CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY"/> as entity ID 
         /// and the worksheet index (as string) and cell address, separated by a colon, as object ID. (e.g. "0:C3)"</remarks>
-        private void ResolveExternalLinksFromFormulas(List<ExternalLink> externalLinks)
+        private void ResolveExternalLinksFromFormulas(List<ExternalLinkCandidate> candidates)
         {
-            List<ExternalLinkCandidate> candidates = CreateExternalLinkCandidates(externalLinks);
             for (int worksheetIndex = 0; worksheetIndex < WriteContext.Workbook.Worksheets.Count; worksheetIndex++)
             {
                 Worksheet worksheet = WriteContext.Workbook.Worksheets[worksheetIndex];
@@ -105,15 +108,14 @@ namespace NanoXLSX.Internal.Writers
         /// <summary>
         /// Method to translate external link expressions (with file name and optional path) in defined names back to the internal indexer representation (e.g. [1])
         /// </summary>
-        /// <param name="externalLinks">List of ExternalLink objects</param>
+        /// <param name="candidates">External-link formula candidates</param>
         /// \remark <remarks>The method does not overwrite the expression of the defined name. 
         /// It stores the resolved expression in <see cref="Workbook.AuxiliaryData"/> with 
         /// <see cref="PlugInUUID.CompatibilityInlineProcessor"/> as plugin ID, 
         /// <see cref="CompatibilityConstants.EXTERNAL_LINK_RESOLVED_DEFINED_NAMES_ENTITY"/> as entity ID 
         /// and the indexer (int as string) as object ID.</remarks>
-        private void ResolveExternalLinksFromDefinedNames(List<ExternalLink> externalLinks)
+        private void ResolveExternalLinksFromDefinedNames(List<ExternalLinkCandidate> candidates)
         {
-            List<ExternalLinkCandidate> candidates = CreateExternalLinkCandidates(externalLinks);
             IReadOnlyList<DefinedName> definedNames = WriteContext.Workbook.GetDefinedNames();
             for (int i = 0; i < definedNames.Count; i++)
             {
@@ -277,7 +279,7 @@ namespace NanoXLSX.Internal.Writers
             {
                 ExternalLink externalLink = externalLinks[i];
                 int linkIndex = i + 1;
-                foreach (string uri in externalLink.Uris)
+                foreach (string uri in externalLink.GetWorkbookLocations())
                 {
                     foreach (string candidate in CreateUriCandidates(uri))
                     {

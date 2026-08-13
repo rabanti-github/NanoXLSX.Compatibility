@@ -19,12 +19,30 @@ namespace NanoXLSX
 
         private readonly List<ExternalWorksheet> worksheets = new List<ExternalWorksheet>();
         private readonly List<ExternalDefinedName> definedNames = new List<ExternalDefinedName>();
-        private readonly List<string> uris = new List<string>();
+        /// <summary>
+        /// Gets the absolute path or URI of the external workbook.
+        /// </summary>
+        public string AbsoluteUri { get; private set; }
 
         /// <summary>
-        /// Gets the paths or URI of the external workbook.
+        /// Gets the optional relative path or URI of the external workbook.
         /// </summary>
-        public IReadOnlyList<string> Uris => uris;
+        public string RelativeUri { get; private set; }
+
+        /// <summary>
+        /// Gets the primary OOXML relationship target.
+        /// </summary>
+        internal string TargetUri { get; private set; }
+
+        /// <summary>
+        /// Gets the optional absolute alternate OOXML relationship target.
+        /// </summary>
+        internal string AbsoluteAlternateUri { get; private set; }
+
+        /// <summary>
+        /// Gets the optional relative alternate OOXML relationship target.
+        /// </summary>
+        internal string RelativeAlternateUri { get; private set; }
 
         /// <summary>
         /// Gets the worksheets declared for the external workbook.
@@ -43,43 +61,49 @@ namespace NanoXLSX
         internal string WorkbookRId { get; set; }
 
         /// <summary>
-        /// Gets the preferred URI used to identify the external workbook.
-        /// An absolute URI is preferred over a relative URI or file name.
-        /// </summary>
-        public string PreferredUri { get; private set; }
-
-        /// <summary>
         /// URI, used to replace internal IDs with readable file paths
         /// </summary>
         internal string ReadableReferenceToken
         {
             get
             {
-                if (string.IsNullOrEmpty(PreferredUri))
+                string uri = GetReadableUri();
+                if (!string.IsNullOrEmpty(uri))
                 {
-                    return null;
+                    return "[" + uri + "]";
                 }
-
-                return "[" + PreferredUri + "]";
+                return null;
             }
         }
 
         /// <summary>
         /// Constructor of an external workbook link.
         /// </summary>
-        public ExternalLink()
+        internal ExternalLink()
         {
         }
 
         /// <summary>
-        /// Constructor of an external workbook link with URI.
+        /// Constructor of an external workbook link with absolute URI. A valid file definition (e.g. 'workbook.xlsx') is mandatory in the path
         /// </summary>
-        /// <param name="uri">Main path or URI of the external workbook.</param>
-        /// \remark <remarks>The URI is often defined as absolute path. For a better portability, a relative path can be used. However, NanoXLSX will not access or validate the defined URI</remarks>
-        public ExternalLink(string uri)
+        /// <param name="absoluteUri">Absolute path or URI of the external workbook.</param>
+        /// \remark <remarks>No relative path is inferred when only an absolute URI is supplied.</remarks>
+        public ExternalLink(string absoluteUri)
         {
-            AddUri(uri);
+            SetAuthoringUris(absoluteUri, null);
         }
+
+        /// <summary>
+        /// Constructor of an external workbook link with absolute and relative URI. A valid file definition (e.g. 'workbook.xlsx') is mandatory in relative path
+        /// </summary>
+        /// <param name="absoluteUri">Absolute path or URI of the external workbook.</param>
+        /// <param name="relativeUri">Relative path of the external workbook</param>
+        /// \remark <remarks>The relative path is usually just a filename  (e.g. 'workbook.xlsx') but it can be explicitly defined with a directory part  (e.g. '../ workbooks/workbook.xlsx') </remarks>
+        public ExternalLink(string absoluteUri, string relativeUri)
+        {
+            SetAuthoringUris(absoluteUri, relativeUri);
+        }
+
 
         /// <summary>
         /// Creates a builder for this external workbook link.
@@ -122,18 +146,215 @@ namespace NanoXLSX
         }
 
         /// <summary>
-        /// Adds a URI of an external workbook
+        /// Sets the authoring URIs of an external workbook.
         /// </summary>
-        /// <param name="uri">URI of the external workbook</param>
-        internal void AddUri(string uri)
+        /// <param name="absoluteUri">Absolute URI of the external workbook</param>
+        /// <param name="relativeUri">Optional relative URI of the external workbook</param>
+        private void SetAuthoringUris(string absoluteUri, string relativeUri)
         {
-            if (string.IsNullOrWhiteSpace(uri))
+            ValidateWorkbookLocation(absoluteUri, true);
+            if (relativeUri != null)
             {
-                throw new ArgumentException("The URI cannot be null or empty");
+                ValidateWorkbookLocation(relativeUri, false);
             }
-            uris.Add(uri);
-            PreferredUri = ResolvePreferredUri();
+
+            AbsoluteUri = absoluteUri;
+            RelativeUri = relativeUri;
+            TargetUri = relativeUri ?? absoluteUri;
+            AbsoluteAlternateUri = relativeUri == null ? null : absoluteUri;
+            RelativeAlternateUri = null;
         }
+
+        /// <summary>
+        /// Sets URI roles read from an OOXML external-link part.
+        /// </summary>
+        internal void SetReadUris(string targetUri, string absoluteAlternateUri, string relativeAlternateUri)
+        {
+            ValidateWorkbookLocation(targetUri, null);
+            if (absoluteAlternateUri != null)
+            {
+                ValidateWorkbookLocation(absoluteAlternateUri, true);
+            }
+            if (relativeAlternateUri != null)
+            {
+                ValidateWorkbookLocation(relativeAlternateUri, false);
+            }
+
+            TargetUri = targetUri;
+            AbsoluteAlternateUri = absoluteAlternateUri;
+            RelativeAlternateUri = relativeAlternateUri;
+
+            bool targetIsAbsolute = IsAbsoluteWorkbookLocation(targetUri);
+            AbsoluteUri = targetIsAbsolute ? targetUri : absoluteAlternateUri;
+            RelativeUri = targetIsAbsolute ? relativeAlternateUri : targetUri;
+        }
+
+        /// <summary>
+        /// Gets all distinct workbook locations represented by this link.
+        /// </summary>
+        internal IReadOnlyList<string> GetWorkbookLocations()
+        {
+            List<string> locations = new List<string>();
+            AddDistinctLocation(locations, TargetUri);
+            AddDistinctLocation(locations, AbsoluteAlternateUri);
+            AddDistinctLocation(locations, RelativeAlternateUri);
+            return locations.AsReadOnly();
+        }
+
+        /// <summary>
+        /// Gets the relationship projection used by external-link package writers.
+        /// </summary>
+        internal IReadOnlyList<ExternalLinkUriRelationship> GetUriRelationships()
+        {
+            List<ExternalLinkUriRelationship> relationships = new List<ExternalLinkUriRelationship>();
+            relationships.Add(new ExternalLinkUriRelationship(
+                "rId1",
+                TargetUri,
+                SerializeRelationshipTarget(TargetUri),
+                ExternalLinkUriRole.Target));
+
+            int relationshipIndex = 2;
+            if (AbsoluteAlternateUri != null)
+            {
+                relationships.Add(new ExternalLinkUriRelationship(
+                    "rId" + relationshipIndex,
+                    AbsoluteAlternateUri,
+                    SerializeRelationshipTarget(AbsoluteAlternateUri),
+                    ExternalLinkUriRole.AbsoluteAlternate));
+                relationshipIndex++;
+            }
+            if (RelativeAlternateUri != null)
+            {
+                relationships.Add(new ExternalLinkUriRelationship(
+                    "rId" + relationshipIndex,
+                    RelativeAlternateUri,
+                    SerializeRelationshipTarget(RelativeAlternateUri),
+                    ExternalLinkUriRole.RelativeAlternate));
+            }
+            return relationships.AsReadOnly();
+        }
+
+        /// <summary>
+        /// Converts a workbook location to an RFC 3986 relationship target.
+        /// </summary>
+        internal static string SerializeRelationshipTarget(string value)
+        {
+            ValidateWorkbookLocation(value, null);
+            string location = value.Trim();
+
+            if (IsWindowsDrivePath(location))
+            {
+                string normalized = location.Replace('\\', '/');
+                string drive = normalized.Substring(0, 2);
+                string path = EscapePath(normalized.Substring(2));
+                return "file:///" + drive + path;
+            }
+
+            if (IsUncPath(location))
+            {
+                string normalized = location.Replace('\\', '/').TrimStart('/');
+                int separator = normalized.IndexOf('/');
+                string host = normalized.Substring(0, separator);
+                string path = normalized.Substring(separator);
+                return "file://" + host + EscapePath(path);
+            }
+
+            if (IsUnixRootedPath(location))
+            {
+                return "file://" + EscapePath(location.Replace('\\', '/'));
+            }
+
+            if (Uri.TryCreate(location.Replace('\\', '/'), UriKind.Absolute, out Uri absoluteUri))
+            {
+                return absoluteUri.AbsoluteUri;
+            }
+
+            string relativeLocation = location.Replace('\\', '/');
+            int query = relativeLocation.IndexOf('?');
+            int fragment = relativeLocation.IndexOf('#');
+            int suffix = query < 0 ? fragment : fragment < 0 ? query : Math.Min(query, fragment);
+            string relativePath = suffix < 0 ? relativeLocation : relativeLocation.Substring(0, suffix);
+            string relativeSuffix = suffix < 0 ? string.Empty : relativeLocation.Substring(suffix);
+            return EscapePath(relativePath) + relativeSuffix;
+        }
+
+        private string GetReadableUri()
+        {
+            if (TargetUri != null && IsAbsoluteWorkbookLocation(TargetUri))
+            {
+                return TargetUri;
+            }
+            if (AbsoluteAlternateUri != null)
+            {
+                return AbsoluteAlternateUri;
+            }
+            if (TargetUri != null)
+            {
+                return TargetUri;
+            }
+            return RelativeAlternateUri;
+        }
+
+        private static void AddDistinctLocation(List<string> locations, string value)
+        {
+            if (value != null && !locations.Contains(value, StringComparer.Ordinal))
+            {
+                locations.Add(value);
+            }
+        }
+
+        private static void ValidateWorkbookLocation(string value, bool? mustBeAbsolute)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new ArgumentException("The URI cannot be null or empty.");
+            }
+
+            bool isAbsolute = IsAbsoluteWorkbookLocation(value.Trim());
+            if (mustBeAbsolute == true && !isAbsolute)
+            {
+                throw new ArgumentException($"The URI must be an absolute workbook location: '{value}'.");
+            }
+            if (mustBeAbsolute == false && isAbsolute)
+            {
+                throw new ArgumentException($"The URI must be a relative workbook location: '{value}'.");
+            }
+
+            string path = GetLocationPath(value.Trim(), isAbsolute);
+            int separator = Math.Max(path.LastIndexOf('/'), path.LastIndexOf('\\'));
+            string filename = separator < 0 ? path : path.Substring(separator + 1);
+            int extensionSeparator = filename.LastIndexOf('.');
+            if (filename.Length == 0 || extensionSeparator <= 0 || extensionSeparator == filename.Length - 1)
+            {
+                throw new ArgumentException($"The URI must point to a file with an extension: '{value}'.");
+            }
+        }
+
+        private static string GetLocationPath(string value, bool isAbsolute)
+        {
+            if (isAbsolute && !IsWindowsDrivePath(value) && !IsUncPath(value) && !IsUnixRootedPath(value)
+                && Uri.TryCreate(value.Replace('\\', '/'), UriKind.Absolute, out Uri absoluteUri))
+            {
+                return Uri.UnescapeDataString(absoluteUri.AbsolutePath);
+            }
+
+            int query = value.IndexOf('?');
+            int fragment = value.IndexOf('#');
+            int suffix = fragment < 0 ? query < 0 ? fragment : query : query < 0 ? fragment : Math.Min(query, fragment);
+            string path = suffix < 0 ? value : value.Substring(0, suffix);
+            return Uri.UnescapeDataString(path);
+        }
+
+        private static string EscapePath(string path)
+        {
+            string[] segments = path.Split('/');
+            for (int i = 0; i < segments.Length; i++)
+            {
+                segments[i] = Uri.EscapeDataString(Uri.UnescapeDataString(segments[i]));
+            }
+            return string.Join("/", segments);
+        }
+
 
         /// <summary>
         /// Adds an external worksheet
@@ -166,48 +387,62 @@ namespace NanoXLSX
             }
             return worksheet;
         }
-
-        private string ResolvePreferredUri()
-        {
-            string fallback = null;
-
-            for (int i = 0; i < uris.Count; i++)
-            {
-                string candidate = uris[i];
-
-                if (string.IsNullOrWhiteSpace(candidate))
-                {
-                    continue;
-                }
-
-                if (fallback == null)
-                {
-                    fallback = candidate;
-                }
-
-                if (IsAbsoluteWorkbookLocation(candidate))
-                {
-                    return candidate;
-                }
-            }
-
-            return fallback;
-        }
-
         private static bool IsAbsoluteWorkbookLocation(string value)
         {
-            // Windows drive path: C:\Folder\Workbook.xlsx
-            if (value.Length >= 3 && char.IsLetter(value[0]) && value[1] == ':' && (value[2] == '\\' || value[2] == '/'))
-            {
-                return true;
-            }
-            // UNC path: \\Server\Share\Workbook.xlsx
-            if (value.StartsWith(@"\\", StringComparison.Ordinal))
+            if (IsWindowsDrivePath(value) || IsUncPath(value) || IsUnixRootedPath(value))
             {
                 return true;
             }
             return Uri.TryCreate(value, UriKind.Absolute, out Uri parsedUri) && parsedUri.IsAbsoluteUri;
         }
 
+        private static bool IsWindowsDrivePath(string value)
+        {
+            return value.Length >= 3
+                && char.IsLetter(value[0])
+                && value[1] == ':'
+                && (value[2] == '\\' || value[2] == '/');
+        }
+
+        private static bool IsUncPath(string value)
+        {
+            return value.StartsWith(@"\\", StringComparison.Ordinal)
+                || value.StartsWith("//", StringComparison.Ordinal);
+        }
+
+        private static bool IsUnixRootedPath(string value)
+        {
+            return value.StartsWith("/", StringComparison.Ordinal) && !value.StartsWith("//", StringComparison.Ordinal);
+        }
+
+    }
+
+    /// <summary>
+    /// Identifies the OOXML role of an external-link URI relationship.
+    /// </summary>
+    internal enum ExternalLinkUriRole
+    {
+        Target,
+        AbsoluteAlternate,
+        RelativeAlternate
+    }
+
+    /// <summary>
+    /// Defines one external-link URI relationship for package writing.
+    /// </summary>
+    internal sealed class ExternalLinkUriRelationship
+    {
+        public string Id { get; private set; }
+        public string RawTarget { get; private set; }
+        public string SerializedTarget { get; private set; }
+        public ExternalLinkUriRole Role { get; private set; }
+
+        public ExternalLinkUriRelationship(string id, string rawTarget, string serializedTarget, ExternalLinkUriRole role)
+        {
+            Id = id;
+            RawTarget = rawTarget;
+            SerializedTarget = serializedTarget;
+            Role = role;
+        }
     }
 }
