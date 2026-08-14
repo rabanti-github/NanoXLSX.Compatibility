@@ -18,11 +18,14 @@ namespace NanoXLSX.Compatibility.Test
         [Theory(DisplayName = "Test of the failing constructor on invalid values")]
         [InlineData("")]
         [InlineData(null)]
-        [InlineData(" ")]
-        [InlineData("\t")]
+        [InlineData("\\")]
+        [InlineData("[test]")]
+        [InlineData("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")]
+        [InlineData("???")]
+        [InlineData("*")]
         public void ConstructorFailTest(string name)
         {
-            Assert.Throws<ArgumentException>(() => { ExternalWorksheet ws = new ExternalWorksheet(name); });
+            Assert.ThrowsAny<Exception>(() => { ExternalWorksheet ws = new ExternalWorksheet(name); });
         }
 
         [Fact(DisplayName = "Test of the AddCell method")]

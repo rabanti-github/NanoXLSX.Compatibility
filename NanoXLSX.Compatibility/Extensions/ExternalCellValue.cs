@@ -25,8 +25,6 @@ namespace NanoXLSX
             Date,
             /// <summary>External cell value is an error and not actually a value</summary>
             Error,
-            /// <summary>External cell value is an inline string with optional formatting, but not maintained as shared string</summary>
-            InlineString,
             /// <summary>External cell value is a shared string reference</summary>
             SharedString,
             /// <summary>External cell value is a formula string</summary>
@@ -40,11 +38,16 @@ namespace NanoXLSX
         /// </summary>
         public string Value { get; private set; }
         /// <summary>
-        /// Type of the external, cached cell value. If not specified, the default <see cref="DataType.SharedString"/> will be used
+        /// Type of the external, cached cell value
         /// </summary>
         /// \Remark <remarks>References pointing to string values in cells are often specified by Excel as <see cref="DataType.Formula"/> although no actual formula is in place</remarks>
 
         public DataType Type { get; private set; }
+
+        /// <summary>
+        /// Cell metadata ID. Currently just for roundtrip preservation on read and write
+        /// </summary>
+        internal int? CellMetadata { get; set; }
 
         /// <summary>
         /// Constructor with value and type

@@ -25,7 +25,6 @@ namespace NanoXLSX.Compatibility.Test
         [InlineData(null, "", ExternalCellValue.DataType.Empty)]
         [InlineData("", "", ExternalCellValue.DataType.Error)]
         [InlineData("test", "test", ExternalCellValue.DataType.SharedString)]
-        [InlineData("inline", "inline", ExternalCellValue.DataType.InlineString)]
         [InlineData("TRUE", "TRUE", ExternalCellValue.DataType.Boolean)]
         [InlineData("1587", "1587", ExternalCellValue.DataType.Date)]
         [InlineData("A5", "A5", ExternalCellValue.DataType.Formula)]

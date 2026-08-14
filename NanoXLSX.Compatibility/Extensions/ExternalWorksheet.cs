@@ -37,13 +37,18 @@ namespace NanoXLSX
         /// </summary>
         public string Name { get; }
 
+        /// <summary>
+        /// Determines whether the values could not be refreshed. Currently just for roundtrip preservation on read and write
+        /// </summary>
+        internal bool? RefreshErros { get; set; }
 
-        internal ExternalWorksheet(string name)
+        /// <summary>
+        /// Constructor with name 
+        /// </summary>
+        /// <param name="name">Name of the external Worksheet</param>
+        public ExternalWorksheet(string name)
         {
-            if (string.IsNullOrWhiteSpace(name))
-            {
-                throw new ArgumentException("The external worksheet name must not be null or empty.");
-            }
+            Validators.ValidateWorksheetName(name);
             Name = name;
         }
 
@@ -69,6 +74,22 @@ namespace NanoXLSX
             cells[new Address(address)] = new ExternalCellValue(value, type);
             return this;
 
+        }
+
+        /// <summary>
+        /// Internal method to add a cached value, provided by the reader (roundtrip) 
+        /// </summary>
+        /// <param name="address">Address of the external cell</param>
+        /// <param name="value">Sting representation of the external cell value. A null value will be transformed to non-cached value (<see cref="ExternalCellValue.DataType.Empty"/>), represented by an empty string</param>
+        /// <param name="type">Data type of the external, cached cell</param>
+        /// <param name="cellMetaData">Optional metadata ID</param>
+        internal void AddCell(string address, string value, ExternalCellValue.DataType type, string cellMetaData)
+        {
+            AddCell(address, value, type);
+            if (cellMetaData != null)
+            {
+                cells[new Address(address)].CellMetadata = ParserUtils.ParseInt(cellMetaData);
+            }
         }
 
         /// <summary>

@@ -144,7 +144,11 @@ namespace NanoXLSX.Internal.Readers
                 link.WorkbookRId = CurrentRelationship.Id;
 
                 List<ExternalLink> externalLinks = Workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY);
-                int index = externalLinks == null ? 0 : externalLinks.Count;
+                int index = 0;
+                if (externalLinks != null && externalLinks.Count > 0)
+                {
+                    index = externalLinks.Count;
+                }
                 Workbook.AuxiliaryData.SetData(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY, index, link, true);
             }
             catch (Exception ex)
@@ -209,12 +213,17 @@ namespace NanoXLSX.Internal.Readers
                 {
                     string id = sheetDataSet.GetAttribute("sheetId");
                     currentIndex = ParserUtils.ParseInt(id);
+                    string refreshErrors = sheetDataSet.GetAttribute("refreshErrors");
+                    if (refreshErrors != null)
+                    {
+                        int parserdSate = ParserUtils.ParseBinaryBool(refreshErrors);
+                        worksheets[currentIndex].RefreshErros = parserdSate == 1 ? true : false;
+                    }
                     continue;
                 }
                 else if (XmlStreamUtils.IsElement(sheetDataSet, "row"))
                 {
-                    ExternalWorksheet worksheet = worksheets[currentIndex];
-                    GetRowData(sheetDataSet.ReadSubtree(), worksheet);
+                    GetRowData(sheetDataSet.ReadSubtree(), worksheets[currentIndex]);
                 }
             }
         }
@@ -226,10 +235,12 @@ namespace NanoXLSX.Internal.Readers
                 bool hasCell = false;
                 string address = null;
                 string type = null;
+                string cellMetaData = null; // Roundtrip only
                 if (XmlStreamUtils.IsElement(row, "cell"))
                 {
                     address = row.GetAttribute("r");
                     type = row.GetAttribute("t");
+                    cellMetaData = row.GetAttribute("vm");
                     hasCell = true;
                     continue;
                 }
@@ -256,15 +267,12 @@ namespace NanoXLSX.Internal.Readers
                             case "str":
                                 dataType = ExternalCellValue.DataType.Formula;
                                 break;
-                            case "inlineStr":
-                                dataType = ExternalCellValue.DataType.InlineString;
-                                break;
                             default:
                                 break;
                         }
                     }
                     string value = row.ReadInnerXml();
-                    worksheet.AddCell(address, value, dataType);
+                    worksheet.AddCell(address, value, dataType, cellMetaData);
                 }
             }
         }

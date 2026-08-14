@@ -19,6 +19,17 @@ namespace NanoXLSX
         private ExternalWorksheet currentWorksheet;
 
         /// <summary>
+        /// Constructor with mandatory absolute URI and optional relative URI 
+        /// </summary>
+        /// <param name="absoluteUri">Absolute URI</param>
+        /// <param name="relativeUri">Relative URI, default is null</param>
+        public ExternalLinkBuilder(string absoluteUri, string relativeUri = null)
+        {
+            ExternalLink externalLink = new ExternalLink(absoluteUri, relativeUri);
+            this.externalLink = externalLink;
+        }
+
+        /// <summary>
         /// Internal constructor of the builder
         /// </summary>
         /// <param name="externalLink"></param>
@@ -41,6 +52,7 @@ namespace NanoXLSX
         /// Adds a worksheet to the external workbook definition and marks it as currently used worksheet in the builder.
         /// as the current worksheet.
         /// </summary>
+        /// <exception cref="Exceptions.FormatException">Thrown if the given name is not a valid worksheet name</exception>
         public ExternalLinkBuilder AddWorksheet(string name)
         {
             ExternalWorksheet worksheet = new ExternalWorksheet(name);

@@ -353,8 +353,7 @@ namespace NanoXLSX.Internal.Readers
                         nameof(links));
                 }
 
-                string replacement =
-                    externalLink.ReadableReferenceToken;
+                string replacement = externalLink.ReadableReferenceToken;
 
                 if (string.IsNullOrEmpty(replacement))
                 {
@@ -365,8 +364,7 @@ namespace NanoXLSX.Internal.Readers
 
                 if (builder == null)
                 {
-                    builder = new StringBuilder(
-                        expression.Length + replacement.Length);
+                    builder = new StringBuilder(expression.Length + replacement.Length);
                 }
 
                 builder.Append(

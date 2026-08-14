@@ -1,5 +1,6 @@
 ﻿using NanoXLSX.Internal;
 using NanoXLSX.Internal.Readers;
+using NanoXLSX.Internal.Writers;
 using NanoXLSX.Registry;
 using NanoXLSX.Utils.Xml;
 using System;
@@ -405,11 +406,13 @@ namespace NanoXLSX.Compatibility.Test
         }
 
         [Theory(DisplayName = "Test of the failing external link builder function for adding worksheets on invalid values")]
-        [InlineData(null)]
         [InlineData("")]
-        [InlineData(" ")]
-        [InlineData("   ")]
-        [InlineData("\t")]
+        [InlineData(null)]
+        [InlineData("\\")]
+        [InlineData("[test]")]
+        [InlineData("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")]
+        [InlineData("???")]
+        [InlineData("*")]
         [InlineData("a")] // duplicate
         public void BuilderFailingWorksheetTest(string name)
         {
