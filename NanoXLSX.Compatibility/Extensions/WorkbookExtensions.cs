@@ -32,7 +32,11 @@ namespace NanoXLSX.Extensions
                 throw new ArgumentNullException(nameof(externalLink), "An external link cannot be null.");
             }
             IReadOnlyList<ExternalLink> externalLinks = GetExternalLinks(workbook);
-            int index = externalLinks == null ? 0 : externalLinks.Count;
+            int index = externalLinks.Count;
+            while (workbook.AuxiliaryData.GetData<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY, index) != null)
+            {
+                index++;
+            }
             workbook.AuxiliaryData.SetData(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY, index, externalLink, true);
         }
 

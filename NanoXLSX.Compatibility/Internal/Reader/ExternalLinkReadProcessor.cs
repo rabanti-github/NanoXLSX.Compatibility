@@ -398,7 +398,7 @@ namespace NanoXLSX.Internal.Reader
             return builder.ToString();
         }
 
-        private Dictionary<string, HashSet<string>> MapRidsToDefinedNames(List<string> rids, IReadOnlyList<DefinedName> definedNames)
+        private static Dictionary<string, HashSet<string>> MapRidsToDefinedNames(List<string> rids, IReadOnlyList<DefinedName> definedNames)
         {
             Dictionary<string, HashSet<string>> map = new Dictionary<string, HashSet<string>>();
             if (definedNames.Count == 0)

@@ -110,10 +110,11 @@ namespace NanoXLSX.Internal.Writer
                     {
                         continue;
                     }
-                    if (!resolvedFormulas.TryGetValue(worksheetIndex, out Dictionary<string, ExternalLinkResolution> worksheetResolutions))
+                    // Note: The worksheet writer or will pass the 1-based sheetID, not the 0-based index
+                    if (!resolvedFormulas.TryGetValue(worksheet.SheetID, out Dictionary<string, ExternalLinkResolution> worksheetResolutions))
                     {
                         worksheetResolutions = new Dictionary<string, ExternalLinkResolution>();
-                        resolvedFormulas.Add(worksheetIndex, worksheetResolutions);
+                        resolvedFormulas.Add(worksheet.SheetID, worksheetResolutions);
                     }
                     worksheetResolutions[cellAddress] = result;
                 }
