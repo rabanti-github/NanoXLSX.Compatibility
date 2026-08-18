@@ -1,15 +1,20 @@
-﻿using NanoXLSX.Interfaces.Writer;
+﻿/*
+ * NanoXLSX is a small .NET library to generate and read XLSX (Microsoft Excel 2007 or newer) files in an easy and native way  
+ * Copyright Raphael Stoeckli © 2026
+ * This library is licensed under the MIT License.
+ * You find a copy of the license in project folder or on: http://opensource.org/licenses/MIT
+ */
+
+using NanoXLSX.Interfaces.Writer;
 using NanoXLSX.Registry;
 using NanoXLSX.Registry.Attributes;
 using NanoXLSX.Utils;
 using NanoXLSX.Utils.Xml;
-using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text;
 
-namespace NanoXLSX.Internal.Writers
+namespace NanoXLSX.Internal.Writer
 {
     [NanoXlsxQueuePlugIn(PlugInUUID = "EXTERNAL_LINK_WRITER", QueueUUID = PlugInUUID.WriterAppendingQueue, PlugInOrder = 20001)]
     internal class ExternalLinkWriter : IPluginIndexedWriter

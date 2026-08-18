@@ -9,7 +9,7 @@ using NanoXLSX.Interfaces.Writer;
 using NanoXLSX.Registry;
 using NanoXLSX.Registry.Attributes;
 
-namespace NanoXLSX.Internal.Writers
+namespace NanoXLSX.Internal.Writer
 {
     /// <summary>
     /// Class responsible to mark compatibility features as enabled, to be written to a XLSX file

@@ -1,6 +1,6 @@
 ﻿using NanoXLSX.Internal;
-using NanoXLSX.Internal.Readers;
-using NanoXLSX.Internal.Writers;
+using NanoXLSX.Internal.Reader;
+using NanoXLSX.Internal.Writer;
 using NanoXLSX.Registry;
 using NanoXLSX.Utils.Xml;
 using System;

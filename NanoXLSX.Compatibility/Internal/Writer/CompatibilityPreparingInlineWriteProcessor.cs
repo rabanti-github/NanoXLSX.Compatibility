@@ -15,7 +15,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace NanoXLSX.Internal.Writers
+namespace NanoXLSX.Internal.Writer
 {
     /// <summary>
     /// Class responsible to prepare the workbook for its compatibility features to be written to a XLSX file
@@ -23,6 +23,9 @@ namespace NanoXLSX.Internal.Writers
     [NanoXlsxQueuePlugIn(PlugInUUID = "MAIN_COMPATIBILITY_WRITE_INLINE_PREPARATION_PROCESSOR", QueueUUID = PlugInUUID.PreparingInlineProcessor, PlugInOrder = 2000)]
     internal class CompatibilityPreparingInlineWriteProcessor : IPluginInlineWriteProcessor
     {
+        private Dictionary<int, Dictionary<string, ExternalLinkResolution>> resolvedFormulas;
+        private Dictionary<int, ExternalLinkResolution> resolvedDefinedNames;
+
         /// <summary>
         /// Write context
         /// </summary>
@@ -42,6 +45,9 @@ namespace NanoXLSX.Internal.Writers
         /// </summary>
         public void Execute()
         {
+            resolvedFormulas = new Dictionary<int, Dictionary<string, ExternalLinkResolution>>();
+            resolvedDefinedNames = new Dictionary<int, ExternalLinkResolution>();
+
             if (!WriteContext.Workbook.Features.ContainsExternalLinks)
             {
                 return; // No external links to process
@@ -65,6 +71,7 @@ namespace NanoXLSX.Internal.Writers
             {
                 ResolveExternalLinksFromDefinedNames(candidates);
             }
+            StoreResolutions();
             // TODO If other resources contains possibly external links, add further handling here
         }
 
@@ -75,8 +82,8 @@ namespace NanoXLSX.Internal.Writers
         /// \remark <remarks>The method does not overwrite the expression of the defined name. 
         /// It stores the resolved expression in <see cref="Workbook.AuxiliaryData"/> with 
         /// <see cref="PlugInUUID.CompatibilityInlineProcessor"/> as plugin ID, 
-        /// <see cref="CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY"/> as entity ID 
-        /// and the worksheet index (as string) and cell address, separated by a colon, as object ID. (e.g. "0:C3)"</remarks>
+        /// <see cref="CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY"/> as entity ID,
+        /// in a dictionary keyed first by worksheet index and then by cell address.</remarks>
         private void ResolveExternalLinksFromFormulas(List<ExternalLinkCandidate> candidates)
         {
             for (int worksheetIndex = 0; worksheetIndex < WriteContext.Workbook.Worksheets.Count; worksheetIndex++)
@@ -99,8 +106,16 @@ namespace NanoXLSX.Internal.Writers
                         expression,
                         new SourceInfo("cell formula", worksheet.SheetName + "!" + cellAddress),
                         candidates);
-                    StoreResolution(
-                        CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY, ParserUtils.ToString(worksheetIndex) + ":" + cellAddress, result);
+                    if (result == null)
+                    {
+                        continue;
+                    }
+                    if (!resolvedFormulas.TryGetValue(worksheetIndex, out Dictionary<string, ExternalLinkResolution> worksheetResolutions))
+                    {
+                        worksheetResolutions = new Dictionary<string, ExternalLinkResolution>();
+                        resolvedFormulas.Add(worksheetIndex, worksheetResolutions);
+                    }
+                    worksheetResolutions[cellAddress] = result;
                 }
             }
         }
@@ -112,8 +127,8 @@ namespace NanoXLSX.Internal.Writers
         /// \remark <remarks>The method does not overwrite the expression of the defined name. 
         /// It stores the resolved expression in <see cref="Workbook.AuxiliaryData"/> with 
         /// <see cref="PlugInUUID.CompatibilityInlineProcessor"/> as plugin ID, 
-        /// <see cref="CompatibilityConstants.EXTERNAL_LINK_RESOLVED_DEFINED_NAMES_ENTITY"/> as entity ID 
-        /// and the indexer (int as string) as object ID.</remarks>
+        /// <see cref="CompatibilityConstants.EXTERNAL_LINK_RESOLVED_DEFINED_NAMES_ENTITY"/> as entity ID,
+        /// in a dictionary keyed by the defined-name index.</remarks>
         private void ResolveExternalLinksFromDefinedNames(List<ExternalLinkCandidate> candidates)
         {
             IReadOnlyList<DefinedName> definedNames = WriteContext.Workbook.GetDefinedNames();
@@ -124,7 +139,10 @@ namespace NanoXLSX.Internal.Writers
                     definedName.TextValue,
                     new SourceInfo("defined name", definedName.Name),
                     candidates);
-                StoreResolution(CompatibilityConstants.EXTERNAL_LINK_RESOLVED_DEFINED_NAMES_ENTITY, ParserUtils.ToString(i), result);
+                if (result != null)
+                {
+                    resolvedDefinedNames[i] = result;
+                }
             }
         }
 
@@ -147,23 +165,18 @@ namespace NanoXLSX.Internal.Writers
         }
 
         /// <summary>
-        /// Stores resolved external links in auxiliary data for later write processing
+        /// Stores all resolved external links in auxiliary data for later write processing
         /// </summary>
-        /// <param name="entityId">Grouping entity ID for resolved external links</param>
-        /// <param name="valueId">ID of the actual external link object (index as string)</param>
-        /// <param name="result">External link object</param>
-        private void StoreResolution(string entityId, string valueId, ExternalLinkResolution result)
+        private void StoreResolutions()
         {
-            if (result == null)
-            {
-                return;
-            }
             WriteContext.Workbook.AuxiliaryData.SetData(
                 PlugInUUID.CompatibilityInlineProcessor,
-                entityId,
-                valueId,
-                result
-                );
+                CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY,
+                resolvedFormulas);
+            WriteContext.Workbook.AuxiliaryData.SetData(
+                PlugInUUID.CompatibilityInlineProcessor,
+                CompatibilityConstants.EXTERNAL_LINK_RESOLVED_DEFINED_NAMES_ENTITY,
+                resolvedDefinedNames);
         }
 
         /// <summary>
