@@ -192,7 +192,7 @@ namespace NanoXLSX.Compatibility.Test
             ExternalLink link = new ExternalLink();
             link.SetReadUris(@"..\files\external.xlsx", @"C:\Files\external.xlsx", @"alternative\external.xlsx");
 
-            XmlElement root = ExternalLinkPackageWriter.GetElement(link);
+            XmlElement root = ExternalLinkWriter.GetElement(link);
             XmlElement externalBook = Assert.Single(root.Children);
             Assert.Equal("externalBook", externalBook.Name);
             Assert.Equal("rId1", XmlAttribute.FindAttribute("r:id", externalBook.Attributes).Value.Value);

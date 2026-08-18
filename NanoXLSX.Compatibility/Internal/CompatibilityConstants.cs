@@ -5,6 +5,8 @@
  * You find a copy of the license in project folder or on: http://opensource.org/licenses/MIT
  */
 
+using NanoXLSX.Internal.Writers;
+
 namespace NanoXLSX.Internal
 {
     /// <summary>
@@ -31,5 +33,11 @@ namespace NanoXLSX.Internal
         /// Entity ID for external reference workbook relationship IDs
         /// </summary>
         public const string EXTERNAL_REFERENCE_WORKBOOK_RID_ENTITY = "external-reference-workbook-rid-entity";
+
+        /// <summary>
+        /// Prefix for the unique package part index, used by <see cref="ExternalLinkPackageRegistry"/> and <see cref="ExternalLinkWriter"/>
+        /// </summary>
+        public const string UNIQUE_PACKAGE_PART_INDEX_PREFIX = "external-link-package-part-"; // add index after this
+
     }
 }

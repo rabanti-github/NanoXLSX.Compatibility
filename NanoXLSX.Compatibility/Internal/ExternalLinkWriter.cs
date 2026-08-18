@@ -3,82 +3,44 @@ using NanoXLSX.Registry;
 using NanoXLSX.Registry.Attributes;
 using NanoXLSX.Utils;
 using NanoXLSX.Utils.Xml;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text;
 
 namespace NanoXLSX.Internal.Writers
 {
-    [NanoXlsxQueuePlugIn(PlugInUUID = "EXTERNAL_LINK_PACKAGE_WRITER", QueueUUID = PlugInUUID.WriterPackageRegistryQueue, PlugInOrder = 20000)]
-    internal class ExternalLinkPackageWriter : IPluginPackageWriter
+    [NanoXlsxQueuePlugIn(PlugInUUID = "EXTERNAL_LINK_WRITER", QueueUUID = PlugInUUID.WriterAppendingQueue, PlugInOrder = 20001)]
+    internal class ExternalLinkWriter : IPluginIndexedWriter
     {
-
-        private const string packagePartPath = "xl/externalLinks/";
-        private const string contentType = @"application/vnd.openxmlformats-officedocument.spreadsheetml.externalLink+xml";
-        private const string relationshipType = @"http://schemas.openxmlformats.org/officeDocument/2006/relationships/externalLink";
-        private int currentOrderNr;
-
-        public XmlElement XmlElement => null; // NoOp in this plug-in type
-
-        public Workbook Workbook { get; set; }
+        private string currentUniqueIndex;
+        private List<ExternalLink> externalLinks;
+        private int maxIndex;
+        XmlElement xmlElement;
 
         public int CurrentIndex { get; set; }
 
-        public List<int> OrderNumbers { get; private set; }
+        public string CurrentUniquePackagePartIndex => currentUniqueIndex;
 
-        public List<string> PackagePartPaths { get; private set; }
+        public int MaxIndex => maxIndex;
 
-        public List<string> PackagePartFileNames { get; private set; }
+        public Workbook Workbook { get; set; }
 
-        public List<string> ContentTypes { get; private set; }
-
-        public List<string> RelationshipTypes { get; private set; }
-
-        public List<bool> ArePackagePartsRoot { get; private set; }
-
-        public List<XmlElement> XmlElements { get; private set; }
-
-        public ExternalLinkPackageWriter()
-        {
-            CurrentIndex = -1;
-            OrderNumbers = new List<int>();
-            PackagePartPaths = new List<string>();
-            PackagePartFileNames = new List<string>();
-            ContentTypes = new List<string>();
-            RelationshipTypes = new List<string>();
-            ArePackagePartsRoot = new List<bool>();
-            XmlElements = new List<XmlElement>();
-        }
+        public XmlElement XmlElement => xmlElement;
 
         public void Init(IBaseWriter baseWriter)
         {
-            Workbook = baseWriter.Workbook;
-            int nr = Workbook.AuxiliaryData.GetData<int>(PlugInUUID.WriterPackageRegistryQueue, PlugInUUID.LastPackageOrderNumber);
-            List<ExternalLink> externalLinks = Workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY);
-            currentOrderNr = nr + 1000;
-
-            if (externalLinks == null || externalLinks.Count == 0)
-            {
-                return; // Nothing to register and write
-            }
-            for (int i = 0; i < externalLinks.Count; i++)
-            {
-                ExternalLink externalLink = externalLinks[i];
-                currentOrderNr++;
-                string name = "externalLink" + ParserUtils.ToString(i + 1) + ".xml";
-                OrderNumbers.Add(currentOrderNr);
-                PackagePartPaths.Add(packagePartPath);
-                PackagePartFileNames.Add(name);
-                ContentTypes.Add(contentType);
-                RelationshipTypes.Add(relationshipType);
-                ArePackagePartsRoot.Add(false);
-                XmlElements.Add(GetElement(externalLink));
-            }
+            this.Workbook = baseWriter.Workbook;
+            List<ExternalLink> storedExternalLinks = Workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY);
+            externalLinks = storedExternalLinks == null ? new List<ExternalLink>() : storedExternalLinks.OfType<ExternalLink>().ToList();
+            maxIndex = externalLinks.Count - 1;
         }
 
         public void Execute()
         {
-            // NoOp
+            currentUniqueIndex = CompatibilityConstants.UNIQUE_PACKAGE_PART_INDEX_PREFIX + ParserUtils.ToString(CurrentIndex);
+            xmlElement = GetElement(externalLinks[CurrentIndex]);
         }
 
         internal static XmlElement GetElement(ExternalLink externalLink)
@@ -172,6 +134,7 @@ namespace NanoXLSX.Internal.Writers
             return element;
         }
 
+
         private static List<XmlElement> GetRowData(ExternalWorksheet sheet)
         {
             if (sheet.Cells.Count == 0)
@@ -179,9 +142,8 @@ namespace NanoXLSX.Internal.Writers
                 return new List<XmlElement>(); ;
             }
             ReadOnlyDictionary<Address, ExternalCellValue> cells = sheet.Cells;
-            // List<Address> addresses = cells.Keys.ToList();
-
             SortedDictionary<int, XmlElement> rows = new SortedDictionary<int, XmlElement>();
+
             foreach (KeyValuePair<Address, ExternalCellValue> cell in cells)
             {
                 if (!rows.TryGetValue(cell.Key.Row, out XmlElement value))
@@ -229,5 +191,6 @@ namespace NanoXLSX.Internal.Writers
                     return null; // numeric
             }
         }
+
     }
 }
