@@ -291,7 +291,7 @@ namespace NanoXLSX.Compatibility.Test
 
             Workbook noLinksWorkbook = new Workbook("Sheet1");
             noLinksWorkbook.CurrentWorksheet.AddCellFormula("..\\[book.xlsx]Sheet1!A1", "A1");
-            Execute(noLinksWorkbook, new string[0]);
+            Assert.Throws<NotSupportedContentException>(() => Execute(noLinksWorkbook, new string[0]));
             Assert.Null(GetResolvedFormula(noLinksWorkbook, noLinksWorkbook.CurrentWorksheet, "A1"));
             Assert.Null(GetResolvedDefinedName(noLinksWorkbook, 0)); // Also not expected
         }

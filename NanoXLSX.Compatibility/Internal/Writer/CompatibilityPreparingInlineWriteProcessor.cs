@@ -53,21 +53,15 @@ namespace NanoXLSX.Internal.Writer
                 return; // No external links to process
             }
             List<ExternalLink> storedExternalLinks = WriteContext.Workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY);
-            if (storedExternalLinks == null)
-            {
-                return; // No external links to process
-            }
-            List<ExternalLink> externalLinks = storedExternalLinks.OfType<ExternalLink>().ToList(); // Returns a null-free list
-            if (externalLinks.Count == 0)
-            {
-                return; // No external links to process
-            }
+            List<ExternalLink> externalLinks = storedExternalLinks == null
+                ? new List<ExternalLink>()
+                : storedExternalLinks.OfType<ExternalLink>().ToList(); // Returns a null-free list
             List<ExternalLinkCandidate> candidates = CreateExternalLinkCandidates(externalLinks);
-            if (WriteContext.Workbook.Features.ContainsWorksheetFormulas && WriteContext.Workbook.Features.ContainsExternalLinks)
+            if (WriteContext.Workbook.Features.ContainsWorksheetFormulas)
             {
                 ResolveExternalLinksFromFormulas(candidates);
             }
-            if (WriteContext.Workbook.Features.ContainsDefinedNameFormulas && WriteContext.Workbook.Features.ContainsExternalLinks)
+            if (WriteContext.Workbook.Features.ContainsDefinedNameFormulas)
             {
                 ResolveExternalLinksFromDefinedNames(candidates);
             }
@@ -89,13 +83,13 @@ namespace NanoXLSX.Internal.Writer
             for (int worksheetIndex = 0; worksheetIndex < WriteContext.Workbook.Worksheets.Count; worksheetIndex++)
             {
                 Worksheet worksheet = WriteContext.Workbook.Worksheets[worksheetIndex];
-                if (!worksheet.Features.ContainsExternalLinks)
+                if (!worksheet.Features.ContainsWorksheetFormulas || !worksheet.Features.ContainsExternalLinks)
                 {
                     continue; // No external links on this worksheet
                 }
                 foreach (Cell cell in worksheet.CellValues)
                 {
-                    if (cell.DataType != Cell.CellType.Formula || (cell.Formula != null && !cell.Formula.Features.ContainsExternalLinks))
+                    if (cell.DataType != Cell.CellType.Formula || cell.Formula == null || !cell.Formula.Features.ContainsExternalLinks)
                     {
                         continue; // No formula or no external link in formula
                     }
@@ -136,6 +130,10 @@ namespace NanoXLSX.Internal.Writer
             for (int i = 0; i < definedNames.Count; i++)
             {
                 DefinedName definedName = definedNames[i];
+                if (!definedName.Features.ContainsExternalLinks)
+                {
+                    continue;
+                }
                 ExternalLinkResolution result = ResolveExpression(
                     definedName.TextValue,
                     new SourceInfo("defined name", definedName.Name),
@@ -192,9 +190,14 @@ namespace NanoXLSX.Internal.Writer
             SourceInfo sourceInfo,
             List<ExternalLinkCandidate> candidates)
         {
-            if (string.IsNullOrEmpty(expression) || candidates.Count == 0)
+            if (string.IsNullOrEmpty(expression))
             {
                 return null;
+            }
+
+            if (ExternalLinkFormulaUtils.DetectExternalLinkId(expression))
+            {
+                throw GetUnsupportedNumericReference(sourceInfo);
             }
 
             ValidateCaseInsensitiveAmbiguities(expression, sourceInfo, candidates);
@@ -203,7 +206,11 @@ namespace NanoXLSX.Internal.Writer
             HashSet<int> matchedIndexes = new HashSet<int>();
             foreach (ExternalLinkCandidate candidate in candidates)
             {
-                if (resolvedExpression.IndexOf(candidate.Text, StringComparison.Ordinal) < 0)
+                if (IndexOfOutsideStringConstants(
+                    resolvedExpression,
+                    candidate.Text,
+                    0,
+                    StringComparison.Ordinal) < 0)
                 {
                     continue;
                 }
@@ -213,8 +220,21 @@ namespace NanoXLSX.Internal.Writer
                 }
 
                 int linkIndex = candidate.LinkIndexes[0];
-                resolvedExpression = resolvedExpression.Replace(candidate.Text, "[" + ParserUtils.ToString(linkIndex) + "]");
+                string replacedExpression = ReplaceOutsideStringConstants(
+                    resolvedExpression,
+                    candidate.Text,
+                    "[" + ParserUtils.ToString(linkIndex) + "]");
+                if (object.ReferenceEquals(replacedExpression, resolvedExpression))
+                {
+                    continue;
+                }
+                resolvedExpression = replacedExpression;
                 matchedIndexes.Add(linkIndex);
+            }
+
+            if (ExternalLinkFormulaUtils.TryFindUnresolvedExternalLink(resolvedExpression, out string unresolvedToken))
+            {
+                throw GetUnregisteredReference(sourceInfo, unresolvedToken);
             }
 
             if (matchedIndexes.Count == 0)
@@ -251,7 +271,11 @@ namespace NanoXLSX.Internal.Writer
 
                 string representative = group.First().Text;
                 int position = 0;
-                while ((position = expression.IndexOf(representative, position, StringComparison.OrdinalIgnoreCase)) >= 0)
+                while ((position = IndexOfOutsideStringConstants(
+                    expression,
+                    representative,
+                    position,
+                    StringComparison.OrdinalIgnoreCase)) >= 0)
                 {
                     string matchedText = expression.Substring(position, representative.Length);
                     bool hasExactCandidate = group.Any(candidate =>
@@ -281,6 +305,126 @@ namespace NanoXLSX.Internal.Writer
         }
 
         /// <summary>
+        /// Creates an exception for a user-entered numeric external-link identifier.
+        /// </summary>
+        private static NotSupportedContentException GetUnsupportedNumericReference(SourceInfo sourceInfo)
+        {
+            return new NotSupportedContentException(
+                "The " + sourceInfo.SourceKind + " '" + sourceInfo.SourceIdentifier +
+                "' contains a numeric OOXML external-link identifier. Use a human-readable external workbook reference and register the workbook with WorkbookExtensions.AddExternalLink before saving.");
+        }
+
+        /// <summary>
+        /// Creates an exception for a human-readable external link which is not registered on the workbook.
+        /// </summary>
+        private static NotSupportedContentException GetUnregisteredReference(SourceInfo sourceInfo, string unresolvedToken)
+        {
+            return new NotSupportedContentException(
+                "The " + sourceInfo.SourceKind + " '" + sourceInfo.SourceIdentifier + "' contains the unregistered external link '" +
+                unresolvedToken + "'. Register the external workbook with WorkbookExtensions.AddExternalLink before saving.");
+        }
+
+        /// <summary>
+        /// Replaces all ordinal occurrences outside Excel string constants.
+        /// </summary>
+        private static string ReplaceOutsideStringConstants(string expression, string oldValue, string newValue)
+        {
+            int firstMatch = expression.IndexOf(oldValue, StringComparison.Ordinal);
+            if (firstMatch < 0)
+            {
+                return expression;
+            }
+
+            System.Text.StringBuilder builder = null;
+            bool insideStringConstant = false;
+            int unchangedSectionStart = 0;
+            for (int i = 0; i < expression.Length; i++)
+            {
+                char current = expression[i];
+                if (current == '"')
+                {
+                    if (insideStringConstant && i + 1 < expression.Length && expression[i + 1] == '"')
+                    {
+                        i++;
+                        continue;
+                    }
+                    insideStringConstant = !insideStringConstant;
+                    continue;
+                }
+                if (insideStringConstant || i + oldValue.Length > expression.Length ||
+                    string.CompareOrdinal(expression, i, oldValue, 0, oldValue.Length) != 0 ||
+                    !HasValidCandidatePrefix(expression, i, oldValue))
+                {
+                    continue;
+                }
+
+                if (builder == null)
+                {
+                    builder = new System.Text.StringBuilder(expression.Length);
+                }
+                builder.Append(expression, unchangedSectionStart, i - unchangedSectionStart);
+                builder.Append(newValue);
+                i += oldValue.Length - 1;
+                unchangedSectionStart = i + 1;
+            }
+
+            if (builder == null)
+            {
+                return expression;
+            }
+            builder.Append(expression, unchangedSectionStart, expression.Length - unchangedSectionStart);
+            return builder.ToString();
+        }
+
+        /// <summary>
+        /// Finds an occurrence outside Excel string constants.
+        /// </summary>
+        private static int IndexOfOutsideStringConstants(
+            string expression,
+            string value,
+            int startIndex,
+            StringComparison comparison)
+        {
+            bool insideStringConstant = false;
+            for (int i = 0; i + value.Length <= expression.Length; i++)
+            {
+                char current = expression[i];
+                if (current == '"')
+                {
+                    if (insideStringConstant && i + 1 < expression.Length && expression[i + 1] == '"')
+                    {
+                        i++;
+                        continue;
+                    }
+                    insideStringConstant = !insideStringConstant;
+                    continue;
+                }
+                if (i >= startIndex && !insideStringConstant &&
+                    string.Compare(expression, i, value, 0, value.Length, comparison) == 0 &&
+                    HasValidCandidatePrefix(expression, i, value))
+                {
+                    return i;
+                }
+            }
+            return -1;
+        }
+
+        /// <summary>
+        /// Prevents a filename-only candidate from matching the tail of a different explicit path.
+        /// </summary>
+        private static bool HasValidCandidatePrefix(string expression, int matchIndex, string candidate)
+        {
+            if (matchIndex == 0 || candidate.Length == 0 || candidate[0] != '[')
+            {
+                return true;
+            }
+
+            char previous = expression[matchIndex - 1];
+            return !char.IsLetterOrDigit(previous) && previous != '_' && previous != '.' &&
+                previous != ':' && previous != '/' && previous != '\\';
+        }
+
+        /// <summary>
         /// Method to identify possible candidates of external links from a unresolved expression
         /// </summary>
         /// <param name="externalLinks">List of external link objects</param>
@@ -293,17 +437,29 @@ namespace NanoXLSX.Internal.Writer
             {
                 ExternalLink externalLink = externalLinks[i];
                 int linkIndex = i + 1;
+                HashSet<string> linkCandidates = new HashSet<string>(StringComparer.Ordinal);
                 foreach (string uri in externalLink.GetWorkbookLocations())
                 {
                     foreach (string candidate in CreateUriCandidates(uri))
                     {
-                        if (!candidates.TryGetValue(candidate, out HashSet<int> indexes))
-                        {
-                            indexes = new HashSet<int>();
-                            candidates[candidate] = indexes;
-                        }
-                        indexes.Add(linkIndex);
+                        linkCandidates.Add(candidate);
                     }
+                }
+                string readableToken = externalLink.ReadableReferenceToken;
+                if (!string.IsNullOrEmpty(readableToken))
+                {
+                    linkCandidates.Add(readableToken);
+                    linkCandidates.Add(readableToken.Replace('\\', '/'));
+                    linkCandidates.Add(readableToken.Replace('/', '\\'));
+                }
+                foreach (string candidate in linkCandidates)
+                {
+                    if (!candidates.TryGetValue(candidate, out HashSet<int> indexes))
+                    {
+                        indexes = new HashSet<int>();
+                        candidates[candidate] = indexes;
+                    }
+                    indexes.Add(linkIndex);
                 }
             }
 
