@@ -16,7 +16,6 @@ namespace NanoXLSX
     /// </summary>
     public class ExternalLink
     {
-
         private readonly List<ExternalWorksheet> worksheets = new List<ExternalWorksheet>();
         private readonly List<ExternalDefinedName> definedNames = new List<ExternalDefinedName>();
         /// <summary>
@@ -278,6 +277,10 @@ namespace NanoXLSX
             return EscapePath(relativePath) + relativeSuffix;
         }
 
+        /// <summary>
+        /// Gets the readable URI from several constellations
+        /// </summary>
+        /// <returns>Readable URI or null if none could be determined</returns>
         private string GetReadableUri()
         {
             if (TargetUri != null && IsAbsoluteWorkbookLocation(TargetUri))
@@ -295,6 +298,11 @@ namespace NanoXLSX
             return RelativeAlternateUri;
         }
 
+        /// <summary>
+        /// Add the correct URI locations for different URI types of relationships
+        /// </summary>
+        /// <param name="locations">Reference of the URI list</param>
+        /// <param name="value">Value to assign</param>
         private static void AddDistinctLocation(List<string> locations, string value)
         {
             if (value != null && !locations.Contains(value, StringComparer.Ordinal))
@@ -303,6 +311,12 @@ namespace NanoXLSX
             }
         }
 
+        /// <summary>
+        /// Validates the URI of a worksheet (relationship target)
+        /// </summary>
+        /// <param name="value">Value (URI) to validate</param>
+        /// <param name="mustBeAbsolute">If true, the validated URI must be absolute</param>
+        /// <exception cref="ArgumentException">Thrown if the URI is invalid as URI for a external workbook</exception>
         private static void ValidateWorkbookLocation(string value, bool? mustBeAbsolute)
         {
             if (string.IsNullOrWhiteSpace(value))
@@ -330,6 +344,12 @@ namespace NanoXLSX
             }
         }
 
+        /// <summary>
+        /// Gets the escaped path of a URI, used as relationship target
+        /// </summary>
+        /// <param name="value">Value (raw URI) to be processed</param>
+        /// <param name="isAbsolute">If true, the URI is expected as absolute path</param>
+        /// <returns>Escaped location path</returns>
         private static string GetLocationPath(string value, bool isAbsolute)
         {
             if (isAbsolute && !IsWindowsDrivePath(value) && !IsUncPath(value) && !IsUnixRootedPath(value)
@@ -345,6 +365,11 @@ namespace NanoXLSX
             return Uri.UnescapeDataString(path);
         }
 
+        /// <summary>
+        /// Method to escape an URI path
+        /// </summary>
+        /// <param name="path">URI to escape</param>
+        /// <returns>Escaped URI</returns>
         private static string EscapePath(string path)
         {
             string[] segments = path.Split('/');
@@ -387,6 +412,12 @@ namespace NanoXLSX
             }
             return worksheet;
         }
+
+        /// <summary>
+        /// Determines whether the passed value is a absolute external workbook URI
+        /// </summary>
+        /// <param name="value">Value to check</param>
+        /// <returns>True if absolute, otherwise false</returns>
         private static bool IsAbsoluteWorkbookLocation(string value)
         {
             if (IsWindowsDrivePath(value) || IsUncPath(value) || IsUnixRootedPath(value))
@@ -396,6 +427,11 @@ namespace NanoXLSX
             return Uri.TryCreate(value, UriKind.Absolute, out Uri parsedUri) && parsedUri.IsAbsoluteUri;
         }
 
+        /// <summary>
+        /// Determines whether the passed URI points to a Windows drive (letter)
+        /// </summary>
+        /// <param name="value">Value to check</param>
+        /// <returns>True if a Windows drive path, otherwise false</returns>
         private static bool IsWindowsDrivePath(string value)
         {
             return value.Length >= 3
@@ -404,12 +440,22 @@ namespace NanoXLSX
                 && (value[2] == '\\' || value[2] == '/');
         }
 
+        /// <summary>
+        /// Determines whether the passed URI is a UNC path
+        /// </summary>
+        /// <param name="value">Value to check</param>
+        /// <returns>True if a UNC path, otherwise false</returns>
         private static bool IsUncPath(string value)
         {
             return value.StartsWith(@"\\", StringComparison.Ordinal)
                 || value.StartsWith("//", StringComparison.Ordinal);
         }
 
+        /// <summary>
+        /// Determines whether the passed URI is a Linux/UNIX drive path
+        /// </summary>
+        /// <param name="value">Value to check</param>
+        /// <returns>True if a Linux/UNIX path, otherwise false</returns>
         private static bool IsUnixRootedPath(string value)
         {
             return value.StartsWith("/", StringComparison.Ordinal) && !value.StartsWith("//", StringComparison.Ordinal);

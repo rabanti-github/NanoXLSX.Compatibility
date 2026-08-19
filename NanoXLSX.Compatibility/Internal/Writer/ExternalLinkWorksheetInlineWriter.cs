@@ -18,13 +18,34 @@ namespace NanoXLSX.Internal.Writer
     [NanoXlsxQueuePlugIn(PlugInUUID = "EXTERNAL_LINK_INLINE_WORKSHEET_WRITER", QueueUUID = PlugInUUID.WorksheetInlineWriter, PlugInOrder = 100000)]
     internal class ExternalLinkWorksheetInlineWriter : IPluginInlineWriter
     {
+        #region privateFields
         private Worksheet currentWorksheet;
+        #endregion
+        #region properties
+        /// <summary>
+        /// Current workbook
+        /// </summary>
         public Workbook Workbook { get; set; }
+        /// <summary>
+        /// Write context
+        /// </summary>
         public IWriteContext WriteContext { get; set; } // NoOp
+        /// <summary>
+        /// Root element of the parent writer
+        /// </summary>
         public XmlElement RootElement { get; set; }
-
+        /// <summary>
+        /// Current XML element
+        /// </summary>
         public XmlElement XmlElement { get; } // NoOp
-
+        #endregion
+        #region methods
+        /// <summary>
+        /// Initializing method (interface implementation)
+        /// </summary>
+        /// <param name="rootElement">Root element of the parent writer</param>
+        /// <param name="workbook">Current workbook</param>
+        /// <param name="index">Index applied in <see cref="Execute"/></param>
         public void Init(ref XmlElement rootElement, Workbook workbook, int? index = null)
         {
             Workbook = workbook;
@@ -33,6 +54,9 @@ namespace NanoXLSX.Internal.Writer
             currentWorksheet = Workbook.Worksheets.First(w => w.SheetID == index); // This should never fail
         }
 
+        /// <summary>
+        /// Main execution method of the processor (interface implementation)
+        /// </summary>
         public void Execute()
         {
             if (!currentWorksheet.Features.ContainsExternalLinks)
@@ -43,6 +67,9 @@ namespace NanoXLSX.Internal.Writer
             // TODO add further worksheet-related processing, if external links are somewhere else too
         }
 
+        /// <summary>
+        /// Method to replace formulas with human-readable external link markers into the OOXML compliant form (e.g. [1])
+        /// </summary>
         private void ReplaceFormulas()
         {
             Dictionary<int, Dictionary<string, ExternalLinkResolution>> externalLinks =
@@ -68,6 +95,7 @@ namespace NanoXLSX.Internal.Writer
                 }
             }
         }
+        #endregion
 
     }
 }

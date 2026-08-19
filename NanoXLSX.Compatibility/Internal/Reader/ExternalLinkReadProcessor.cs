@@ -23,13 +23,29 @@ namespace NanoXLSX.Internal.Reader
     [NanoXlsxQueuePlugIn(PlugInUUID = "EXTERNAL_LINK_READ_PROCESSOR", QueueUUID = PlugInUUID.FinalizingInlineProcessor, PlugInOrder = 20000)]
     internal class ExternalLinkReadProcessor : IPluginInlineReadProcessor
     {
+        #region properties
+        /// <summary>
+        /// Current workbook
+        /// </summary>
         public Workbook Workbook { get; set; }
+        #endregion
+        #region methods
 
+        /// <summary>
+        /// Initialization method (interface implementation)
+        /// </summary>
+        /// <param name="workbook">Workbook reference</param>
+        /// <param name="readerOptions">Reader options</param>
+        /// <param name="index">index applied in <see cref="Execute"/></param>
         public void Init(Workbook workbook, IOptions readerOptions, int? index = null)
         {
             this.Workbook = workbook;
         }
 
+        /// <summary>
+        /// Method to execute the main logic of the plug-in (interface implementation)
+        /// </summary>
+        /// <exception cref="IOException">Throws an IOException in case of a error during reading</exception>
         public void Execute()
         {
             List<ExternalLink> externalLinks = Workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY);
@@ -219,6 +235,6 @@ namespace NanoXLSX.Internal.Reader
         {
             return "[" + ParserUtils.ToString(zeroBasedIndex + 1) + "]";
         }
-
+        #endregion
     }
 }

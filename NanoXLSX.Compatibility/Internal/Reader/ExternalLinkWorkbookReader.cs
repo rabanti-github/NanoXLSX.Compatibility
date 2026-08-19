@@ -25,16 +25,37 @@ namespace NanoXLSX.Internal.Reader
     [NanoXlsxQueuePlugIn(PlugInUUID = "EXTERNAL_LINK_WORKBOOK_READER", QueueUUID = PlugInUUID.WorkbookInlineReader, PlugInOrder = 10000)]
     internal class ExternalLinkWorkbookReader : IPluginInlineReader
     {
+        #region privateFields
         private Stream stream;
+        #endregion
+        #region properties
+        /// <summary>
+        /// Reference to a ReaderPlugInHandler, to be used for inline operations in the <see cref="Execute"/> method
+        /// </summary>
         public Action<Stream, Workbook, string, IOptions, int?> InlinePluginHandler { get; set; }
+        /// <summary>
+        /// Current workbook
+        /// </summary>
         public Workbook Workbook { get; set; }
+        #endregion
+        #region methods
 
+        /// <summary>
+        /// Initialization method (interface implementation)
+        /// </summary>
+        /// <param name="stream">Stream to be read</param>
+        /// <param name="workbook">Workbook reference</param>
+        /// <param name="readerOptions">Reader options</param>
+        /// <param name="index">Index applied in <see cref="Execute"/></param>
         public void Init(Stream stream, Workbook workbook, IOptions readerOptions, int? index = null)
         {
             this.stream = stream;
             this.Workbook = workbook;
         }
 
+        /// <summary>
+        /// Method to execute the main logic of the plug-in (interface implementation)
+        /// </summary>
         public void Execute()
         {
             try
@@ -145,4 +166,5 @@ namespace NanoXLSX.Internal.Reader
             Expression = expression;
         }
     }
+    #endregion
 }

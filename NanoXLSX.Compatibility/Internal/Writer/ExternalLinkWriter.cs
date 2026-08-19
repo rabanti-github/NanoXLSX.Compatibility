@@ -19,21 +19,41 @@ namespace NanoXLSX.Internal.Writer
     [NanoXlsxQueuePlugIn(PlugInUUID = "EXTERNAL_LINK_WRITER", QueueUUID = PlugInUUID.WriterAppendingQueue, PlugInOrder = 20001)]
     internal class ExternalLinkWriter : IPluginIndexedWriter
     {
+        #region privateFields
         private string currentUniqueIndex;
         private List<ExternalLink> externalLinks;
         private int maxIndex;
         XmlElement xmlElement;
+        #endregion
+        #region properties
 
+        /// <summary>
+        /// Current used index, applied in <see cref="Execute"/>
+        /// </summary>
         public int CurrentIndex { get; set; }
-
+        /// <summary>
+        /// Current unique package part index (for identification)
+        /// </summary>
         public string CurrentUniquePackagePartIndex => currentUniqueIndex;
-
+        /// <summary>
+        /// Max index (0-based), to be used to identify the max number of iterations, applicable for this writer
+        /// </summary>
         public int MaxIndex => maxIndex;
 
+        /// <summary>
+        /// Current workbook
+        /// </summary>
         public Workbook Workbook { get; set; }
-
+        /// <summary>
+        /// Current XML element
+        /// </summary>
         public XmlElement XmlElement => xmlElement;
-
+        #endregion
+        #region methods
+        /// <summary>
+        /// Initializing method (interface implementation)
+        /// </summary>
+        /// <param name="baseWriter">Base writer</param>
         public void Init(IBaseWriter baseWriter)
         {
             this.Workbook = baseWriter.Workbook;
@@ -44,12 +64,20 @@ namespace NanoXLSX.Internal.Writer
             maxIndex = externalLinks.Count - 1;
         }
 
+        /// <summary>
+        /// Main execution method of the processor (interface implementation)
+        /// </summary>
         public void Execute()
         {
             currentUniqueIndex = CompatibilityConstants.UNIQUE_PACKAGE_PART_INDEX_PREFIX + ParserUtils.ToString(CurrentIndex);
             xmlElement = GetElement(externalLinks[CurrentIndex]);
         }
 
+        /// <summary>
+        /// Main method to get the current XML element
+        /// </summary>
+        /// <param name="externalLink">External link to process</param>
+        /// <returns>XmlElement instance of the external link</returns>
         internal static XmlElement GetElement(ExternalLink externalLink)
         {
             IReadOnlyList<ExternalLinkUriRelationship> relationships = externalLink.GetUriRelationships();
@@ -146,7 +174,11 @@ namespace NanoXLSX.Internal.Writer
             return element;
         }
 
-
+        /// <summary>
+        /// Method to get the XmlElement child for row data of (cached) external worksheets 
+        /// </summary>
+        /// <param name="sheet">External worksheet to process</param>
+        /// <returns>List of XmlElement instances</returns>
         private static List<XmlElement> GetRowData(ExternalWorksheet sheet)
         {
             if (sheet.Cells.Count == 0)
@@ -188,6 +220,11 @@ namespace NanoXLSX.Internal.Writer
             return rows.Values.ToList();
         }
 
+        /// <summary>
+        /// Gets the valid string for the type of cached cells
+        /// </summary>
+        /// <param name="dataType">Datatype eum</param>
+        /// <returns></returns>
         private static string GetCellType(ExternalCellValue.DataType dataType)
         {
             switch (dataType)
@@ -204,6 +241,6 @@ namespace NanoXLSX.Internal.Writer
                     return null; // numeric
             }
         }
-
+        #endregion
     }
 }

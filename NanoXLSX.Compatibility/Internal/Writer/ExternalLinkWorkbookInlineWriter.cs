@@ -19,18 +19,40 @@ namespace NanoXLSX.Internal.Writer
     [NanoXlsxQueuePlugIn(PlugInUUID = "EXTERNAL_LINK_INLINE_WORKBOOK_WRITER", QueueUUID = PlugInUUID.WorkbookInlineWriter, PlugInOrder = 100000)]
     internal class ExternalLinkWorkbookInlineWriter : IPluginInlineWriter
     {
+        #region properties
+        /// <summary>
+        /// Current workbook
+        /// </summary>
         public Workbook Workbook { get; set; }
+        /// <summary>
+        /// Write context
+        /// </summary>
         public IWriteContext WriteContext { get; set; } // NoOp
+        /// <summary>
+        /// Root element of the parent writer
+        /// </summary>
         public XmlElement RootElement { get; set; }
-
+        /// <summary>
+        /// Current XML element
+        /// </summary>
         public XmlElement XmlElement { get; } // NoOp
-
+        #endregion
+        #region methods
+        /// <summary>
+        /// Initializing method (interface implementation)
+        /// </summary>
+        /// <param name="rootElement">Root element of the parent writer</param>
+        /// <param name="workbook">Current workbook</param>
+        /// <param name="index">Index applied in <see cref="Execute"/></param>
         public void Init(ref XmlElement rootElement, Workbook workbook, int? index = null)
         {
             Workbook = workbook;
             RootElement = rootElement;
         }
 
+        /// <summary>
+        /// Main execution method of the processor (interface implementation)
+        /// </summary>
         public void Execute()
         {
             XmlElement externalReferences = GetExternalReferences();
@@ -44,6 +66,9 @@ namespace NanoXLSX.Internal.Writer
             // TODO add further workbook-related processing, if external links are somewhere else too
         }
 
+        /// <summary>
+        ///  Method to replace defined name expressions (formulas) with human-readable external link markers into the OOXML compliant form (e.g. [1])
+        /// </summary>
         private void ReplaceDefinedNames()
         {
             Dictionary<int, ExternalLinkResolution> externalLinks = Workbook.AuxiliaryData.GetData<Dictionary<int, ExternalLinkResolution>>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_DEFINED_NAMES_ENTITY);
@@ -62,7 +87,11 @@ namespace NanoXLSX.Internal.Writer
                 index++;
             }
         }
-
+        /// <summary>
+        /// Method to get the XML element of external references, to be written into the workbook XML 
+        /// </summary>
+        /// <returns>XML element</returns>
+        /// <exception cref="IOException">Thrown if the expected ExternalLink package part is not avalilable</exception>
         private XmlElement GetExternalReferences()
         {
             List<ExternalLink> externalLinks = Workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY);
@@ -84,5 +113,6 @@ namespace NanoXLSX.Internal.Writer
             }
             return externalReferences;
         }
+        #endregion
     }
 }

@@ -23,25 +23,28 @@ namespace NanoXLSX.Internal.Writer
     [NanoXlsxQueuePlugIn(PlugInUUID = "MAIN_COMPATIBILITY_WRITE_INLINE_PREPARATION_PROCESSOR", QueueUUID = PlugInUUID.PreparingInlineProcessor, PlugInOrder = 2000)]
     internal class CompatibilityPreparingInlineWriteProcessor : IPluginInlineWriteProcessor
     {
+        #region privateFields
         private Dictionary<int, Dictionary<string, ExternalLinkResolution>> resolvedFormulas;
         private Dictionary<int, ExternalLinkResolution> resolvedDefinedNames;
-
+        #endregion
+        #region properties
         /// <summary>
         /// Write context
         /// </summary>
         public IWriteContext WriteContext { get; set; }
-
+        #endregion
+        #region methods
         /// <summary>
-        /// Initializing method
+        /// Initializing method (interface implementation)
         /// </summary>
-        /// <param name="context">Writ context</param>
+        /// <param name="context">Write context</param>
         public void Init(IWriteContext context)
         {
             this.WriteContext = context;
         }
 
         /// <summary>
-        /// Main execution method of the preparing processor
+        /// Main execution method of the preparing processor (interface implementation)
         /// </summary>
         public void Execute()
         {
@@ -566,6 +569,7 @@ namespace NanoXLSX.Internal.Writer
 
             return directory + "[" + filename + "]";
         }
+        #endregion
 
         #region helperClasses
 

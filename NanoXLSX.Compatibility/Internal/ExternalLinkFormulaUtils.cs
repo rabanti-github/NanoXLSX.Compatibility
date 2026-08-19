@@ -104,7 +104,6 @@ namespace NanoXLSX.Internal
             {
                 return false;
             }
-
             bool insideStringConstant = false;
             for (int i = 0; i < expression.Length; i++)
             {
@@ -119,31 +118,26 @@ namespace NanoXLSX.Internal
                     insideStringConstant = !insideStringConstant;
                     continue;
                 }
-
                 if (insideStringConstant || current != '[')
                 {
                     continue;
                 }
-
                 int closingBracket = expression.IndexOf(']', i + 1);
                 if (closingBracket <= i + 1)
                 {
                     continue;
                 }
-
                 string bracketToken = expression.Substring(i, closingBracket - i + 1);
                 if (ParserUtils.IsValidExternalLinkId(bracketToken) || HasStructuredReferencePrefix(expression, i))
                 {
                     i = closingBracket;
                     continue;
                 }
-
                 if (FormsExternalReference(expression, closingBracket))
                 {
                     token = bracketToken;
                     return true;
                 }
-
                 i = closingBracket;
             }
 
@@ -160,13 +154,11 @@ namespace NanoXLSX.Internal
             {
                 return expression;
             }
-
             int firstOpeningBracket = expression.IndexOf('[');
             if (firstOpeningBracket < 0)
             {
                 return expression;
             }
-
             bool insideStringConstant = false;
             int unchangedSectionStart = 0;
             StringBuilder builder = null;

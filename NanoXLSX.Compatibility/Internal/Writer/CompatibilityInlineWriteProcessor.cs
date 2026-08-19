@@ -17,22 +17,24 @@ namespace NanoXLSX.Internal.Writer
     [NanoXlsxQueuePlugIn(PlugInUUID = "MAIN_COMPATIBILITY_WRITE_INLINE_ENABLE_PROCESSOR", QueueUUID = PlugInUUID.CompatibilityInlineProcessor, PlugInOrder = 1000)]
     internal class CompatibilityInlineWriteProcessor : IPluginInlineWriteProcessor
     {
+        #region properties
         /// <summary>
         /// Write context
         /// </summary>
         public IWriteContext WriteContext { get; set; }
-
+        #endregion
+        #region methods
         /// <summary>
-        /// Initializing method
+        /// Initializing method (interface implementation)
         /// </summary>
-        /// <param name="context">Writ context</param>
+        /// <param name="context">Write context</param>
         public void Init(IWriteContext context)
         {
             this.WriteContext = context;
         }
 
         /// <summary>
-        /// Main execution method of the processor
+        /// Main execution method of the processor (interface implementation)
         /// </summary>
         public void Execute()
         {
@@ -41,5 +43,6 @@ namespace NanoXLSX.Internal.Writer
 
             // TODO Add further enabled compatibility features here
         }
+        #endregion
     }
 }

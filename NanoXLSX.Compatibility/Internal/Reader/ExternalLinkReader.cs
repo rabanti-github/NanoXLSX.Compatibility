@@ -49,8 +49,14 @@ namespace NanoXLSX.Internal.Reader
         /// </summary>
         public Action<Stream, Workbook, string, IOptions, int?> InlinePluginHandler { get; set; }
 
+        /// <summary>
+        /// Name of the stream entry within the (zip) stream
+        /// </summary>
         public string StreamEntryName => null; // NoOp
 
+        /// <summary>
+        /// Relationship info, holding information for the current reader instance
+        /// </summary>
         public RelationshipInfo CurrentRelationship { get; set; }
 
         /// <summary>
@@ -169,6 +175,16 @@ namespace NanoXLSX.Internal.Reader
             }
         }
 
+        /// <summary>
+        /// Gets the relationship info of the current external link document
+        /// </summary>
+        /// <param name="catalog">Relationship catalog with all discovered relationships</param>
+        /// <param name="sourcePartPath">Source part path of the relationship</param>
+        /// <param name="relationshipId">ID of the relationship</param>
+        /// <param name="role">Informative role of the relationship, like "absolute alternate", "relative alternate"  or "target"</param>
+        /// <param name="required">If true, the relationship is mandatory</param>
+        /// <returns>Relationship info object</returns>
+        /// <exception cref="IOException">Thrown if expected parts within the (zip) stream are missing</exception>
         private static RelationshipInfo GetExternalLinkPathRelationship(
             RelationshipCatalog catalog,
             string sourcePartPath,
@@ -198,6 +214,11 @@ namespace NanoXLSX.Internal.Reader
             return relationship;
         }
 
+        /// <summary>
+        /// Gets the sheet names of (cached) external worksheets 
+        /// </summary>
+        /// <param name="sheetNames">XML element to read</param>
+        /// <param name="worksheets">Reference to the dictionary of read worksheet names</param>
         private static void GetSheeetNames(XmlReader sheetNames, Dictionary<int, ExternalWorksheet> worksheets)
         {
             int index = 0;
@@ -213,6 +234,12 @@ namespace NanoXLSX.Internal.Reader
             }
         }
 
+        /// <summary>
+        /// Gets the sheet data of (cached) external worksheets 
+        /// </summary>
+        /// <param name="sheetDataSet">XML reader to be used to get the data</param>
+        /// <param name="worksheets">Dictionary of worksheet names</param>
+        /// <exception cref="IOException">Thrown if expected parts within the (zip) stream are missing</exception>
         private static void GetSheetData(XmlReader sheetDataSet, Dictionary<int, ExternalWorksheet> worksheets)
         {
             int currentIndex = -1;
@@ -242,6 +269,11 @@ namespace NanoXLSX.Internal.Reader
             }
         }
 
+        /// <summary>
+        /// Get defined names of (cached) workbooks 
+        /// </summary>
+        /// <param name="definitions">XML reader to be used to get the data</param>
+        /// <param name="definedNames">reference to the list of read defined names</param>
         private static void GetDefinedNames(XmlReader definitions, List<ExternalDefinedName> definedNames)
         {
             while (definitions.Read())
@@ -261,6 +293,11 @@ namespace NanoXLSX.Internal.Reader
             }
         }
 
+        /// <summary>
+        /// Gets row and cell data from a (cached) worksheet
+        /// </summary>
+        /// <param name="row">XML reader to be used to get the data</param>
+        /// <param name="worksheet">Reference to the currently processed external worksheet</param>
         private static void GetRowData(XmlReader row, ExternalWorksheet worksheet)
         {
             while (row.Read())

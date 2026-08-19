@@ -1,4 +1,3 @@
-using NanoXLSX.Exceptions;
 using NanoXLSX.Extensions;
 using NanoXLSX.Internal;
 using NanoXLSX.Internal.Reader;
