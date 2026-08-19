@@ -5,6 +5,8 @@
  * You find a copy of the license in project folder or on: http://opensource.org/licenses/MIT
  */
 
+using System;
+
 namespace NanoXLSX
 {
     /// <summary>
@@ -25,10 +27,10 @@ namespace NanoXLSX
             Date,
             /// <summary>External cell value is an error and not actually a value</summary>
             Error,
-            /// <summary>External cell value is a shared string reference</summary>
-            SharedString,
-            /// <summary>External cell value is a formula string</summary>
-            Formula,
+            /// <summary>External cell value is a string reference</summary>
+#pragma warning disable CA1720
+            String,
+#pragma warning restore CA1720
             /// <summary>Not a real type for external cells, but used to mark a non-cached cell value. "0" will be shown as cached value in a local worksheet</summary>
             Empty
         }
@@ -40,7 +42,7 @@ namespace NanoXLSX
         /// <summary>
         /// Type of the external, cached cell value
         /// </summary>
-        /// \Remark <remarks>References pointing to string values in cells are often specified by Excel as <see cref="DataType.Formula"/> although no actual formula is in place</remarks>
+        /// \Remark <remarks>String values in external cell caches are commonly represented by Excel as <see cref="DataType.String"/>, even if the referenced source cell contains a formula</remarks>
 
         public DataType Type { get; private set; }
 
@@ -52,28 +54,56 @@ namespace NanoXLSX
         /// <summary>
         /// Constructor with value and type
         /// </summary>
-        /// <param name="value">Value as string representation. Null will be transformed to the type <see cref="DataType.Empty"/>. The cached value will be an empty string in this case</param>
+        /// <param name="value">
+        /// Value as string representation. Null will be transformed to the type <see cref="DataType.Empty"/>. The cached value will be an empty string in this case
+        /// </param>
         /// <param name="type">Type of the external cell</param>
-        /// \Remark <remarks>The validity of the passed string representation of a number is not checked. The type <see cref="DataType.Empty"/> will discard the passed value</remarks>
+        /// <exception cref="ArgumentException">Thrown if a boolean value is not represented as "0" or "1".</exception>
+        /// \Remark <remarks>The validity of numeric values is not checked. Boolean values must be represented as "0" or "1". The type <see cref="DataType.Empty"/> discards the passed value.</remarks>
         public ExternalCellValue(string value, DataType type)
         {
             if (value == null || type == DataType.Empty)
             {
                 Value = "";
                 Type = DataType.Empty;
+                return;
             }
-            else
-            {
-                Value = value;
-                Type = type;
-            }
+
+            Value = NormalizeValue(value, type);
+            Type = type;
         }
 
         /// <summary>
-        /// Constructor with value. The type <see cref="DataType.SharedString"/> will be used as default type
+        /// Constructor with value. The type <see cref="DataType.String"/> will be used as default type
         /// </summary>
         /// <param name="value">Value as string representation. Null will be transformed to the type <see cref="DataType.Empty"/>. The cached value will be an empty string in this case</param>
         /// \Remark <remarks>The validity of the passed string representation of a number is not checked.</remarks>
-        public ExternalCellValue(string value) : this(value, DataType.SharedString) { }
+        public ExternalCellValue(string value) : this(value, DataType.String) { }
+
+        /// <summary>
+        /// Normalizes a cached value to its compliant representation
+        /// </summary>
+        /// <param name="value">Raw value</param>
+        /// <param name="type">Type of the value</param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException">Thrown if a boolean is in a invalid form</exception>
+        private static string NormalizeValue(string value, DataType type)
+        {
+            switch (type)
+            {
+                case DataType.Boolean:
+                    if (value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return "1";
+                    }
+                    if (value == "0" || value.Equals("false", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return "0";
+                    }
+                    throw new ArgumentException("An invalid boolean value was provided (0 or 1 are expected): " + value);
+                default:
+                    return value;
+            }
+        }
     }
 }

@@ -6,6 +6,7 @@
  */
 
 using System;
+using static NanoXLSX.ExternalCellValue;
 
 namespace NanoXLSX
 {
@@ -76,6 +77,12 @@ namespace NanoXLSX
         /// <summary>
         /// Adds or replaces a cached cell value (string representation) on the current worksheet.
         /// </summary>
+        /// <param name="address">Address of the cell</param>
+        /// <param name="value">
+        /// Value as string representation. Null will be transformed to the type <see cref="DataType.Empty"/>. The cached value will be an empty string in this case
+        /// </param>
+        /// <exception cref="ArgumentException">Thrown if a boolean value is not represented as "0" or "1".</exception>
+        /// \Remark <remarks>The validity of numeric values is not checked. Boolean values must be represented as "0" or "1". The type <see cref="DataType.Empty"/> discards the passed value.</remarks>
         public ExternalLinkBuilder AddCell(string address, string value)
         {
             EnsureCurrentWorksheet();
@@ -87,6 +94,13 @@ namespace NanoXLSX
         /// <summary>
         /// Adds or replaces a cached cell value with specified type on the current worksheet.
         /// </summary>
+        /// <param name="address">Address of the cell</param>
+        /// <param name="value">
+        /// Value as string representation. Null will be transformed to the type <see cref="DataType.Empty"/>. The cached value will be an empty string in this case
+        /// </param>
+        /// <param name="type">Type of the external cell</param>
+        /// <exception cref="ArgumentException">Thrown if a boolean value is not represented as "0" or "1".</exception>
+        /// \Remark <remarks>The validity of numeric values is not checked. Boolean values must be represented as "0" or "1". The type <see cref="DataType.Empty"/> discards the passed value.</remarks>
         public ExternalLinkBuilder AddCell(string address, string value, ExternalCellValue.DataType type)
         {
             EnsureCurrentWorksheet();

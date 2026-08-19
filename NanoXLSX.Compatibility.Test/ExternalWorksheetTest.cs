@@ -38,8 +38,8 @@ namespace NanoXLSX.Compatibility.Test
             Assert.Equal(2, ws.Cells.Count);
             Assert.Equal("test1", ws.Cells[new Address("A2")].Value);
             Assert.Equal("test2", ws.Cells[new Address("A1")].Value);
-            Assert.Equal(ExternalCellValue.DataType.SharedString, ws.Cells[new Address("A2")].Type); // Default
-            Assert.Equal(ExternalCellValue.DataType.SharedString, ws.Cells[new Address("A1")].Type); // "
+            Assert.Equal(ExternalCellValue.DataType.String, ws.Cells[new Address("A2")].Type); // Default
+            Assert.Equal(ExternalCellValue.DataType.String, ws.Cells[new Address("A1")].Type); // "
         }
 
         [Fact(DisplayName = "Test of the AddCell method when overwriting existing cells")]
@@ -47,22 +47,22 @@ namespace NanoXLSX.Compatibility.Test
         {
             ExternalWorksheet ws = new ExternalWorksheet("name");
             ws.AddCell("A1", "test1", ExternalCellValue.DataType.Date);
-            ws.AddCell("A1", "newValue", ExternalCellValue.DataType.Formula);
+            ws.AddCell("A1", "newValue", ExternalCellValue.DataType.String);
             Assert.NotEmpty(ws.Cells);
             Assert.Single(ws.Cells);
             Assert.Equal("newValue", ws.Cells[new Address("A1")].Value);
-            Assert.Equal(ExternalCellValue.DataType.Formula, ws.Cells[new Address("A1")].Type);
+            Assert.Equal(ExternalCellValue.DataType.String, ws.Cells[new Address("A1")].Type);
         }
 
         [Fact(DisplayName = "Test of the AddCell method (overload)")]
         public void AddCellTest2()
         {
             ExternalWorksheet ws = new ExternalWorksheet("name");
-            ws.AddCell("A2", "FALSE", ExternalCellValue.DataType.Boolean);
+            ws.AddCell("A2", "0", ExternalCellValue.DataType.Boolean);
             ws.AddCell("A1", "55", ExternalCellValue.DataType.Number);
             Assert.NotEmpty(ws.Cells);
             Assert.Equal(2, ws.Cells.Count);
-            Assert.Equal("FALSE", ws.Cells[new Address("A2")].Value);
+            Assert.Equal("0", ws.Cells[new Address("A2")].Value);
             Assert.Equal("55", ws.Cells[new Address("A1")].Value);
             Assert.Equal(ExternalCellValue.DataType.Boolean, ws.Cells[new Address("A2")].Type);
             Assert.Equal(ExternalCellValue.DataType.Number, ws.Cells[new Address("A1")].Type);

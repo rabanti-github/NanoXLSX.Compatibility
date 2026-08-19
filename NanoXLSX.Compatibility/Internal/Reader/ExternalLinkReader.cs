@@ -268,11 +268,9 @@ namespace NanoXLSX.Internal.Reader
                             case "e":
                                 dataType = ExternalCellValue.DataType.Error;
                                 break;
-                            case "s":
-                                dataType = ExternalCellValue.DataType.SharedString;
-                                break;
+                            case "s": // Should not be used
                             case "str":
-                                dataType = ExternalCellValue.DataType.Formula;
+                                dataType = ExternalCellValue.DataType.String;
                                 break;
                             default:
                                 break;

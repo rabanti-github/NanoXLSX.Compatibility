@@ -14,7 +14,7 @@ namespace NanoXLSX.Compatibility.Test
 
             ExternalCellValue cellValue2 = new ExternalCellValue("test");
             Assert.Equal("test", cellValue2.Value);
-            Assert.Equal(ExternalCellValue.DataType.SharedString, cellValue2.Type); // Default behavior
+            Assert.Equal(ExternalCellValue.DataType.String, cellValue2.Type); // Default behavior
 
         }
 
@@ -24,10 +24,10 @@ namespace NanoXLSX.Compatibility.Test
         [InlineData("", "", ExternalCellValue.DataType.Empty)]
         [InlineData(null, "", ExternalCellValue.DataType.Empty)]
         [InlineData("", "", ExternalCellValue.DataType.Error)]
-        [InlineData("test", "test", ExternalCellValue.DataType.SharedString)]
-        [InlineData("TRUE", "TRUE", ExternalCellValue.DataType.Boolean)]
+        [InlineData("test", "test", ExternalCellValue.DataType.String)]
+        [InlineData("1", "1", ExternalCellValue.DataType.Boolean)]
         [InlineData("1587", "1587", ExternalCellValue.DataType.Date)]
-        [InlineData("A5", "A5", ExternalCellValue.DataType.Formula)]
+        [InlineData("A5", "A5", ExternalCellValue.DataType.String)] // Formula = string
         public void ConstructorTest(string given, string expected, ExternalCellValue.DataType type)
         {
             ExternalCellValue cellValue = new ExternalCellValue(given, type);

@@ -9,6 +9,7 @@ using NanoXLSX.Utils;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using static NanoXLSX.ExternalCellValue;
 
 namespace NanoXLSX
 {
@@ -56,18 +57,24 @@ namespace NanoXLSX
         /// Adds or replaces a cached cell value.
         /// </summary>
         /// <param name="address">Address of the external cell</param>
-        /// <param name="value">Sting representation of the external cell value, where the default <see cref="ExternalCellValue.DataType.SharedString"/> is used. A null value will be transformed to non-cached value (<see cref="ExternalCellValue.DataType.Empty"/>), represented by an empty sting</param>
+        /// <param name="value">Sting representation of the external cell value, where the default <see cref="ExternalCellValue.DataType.String"/> is used. Null will be transformed to the type <see cref="DataType.Empty"/>. The cached value will be an empty string in this case.</param>
+        /// <exception cref="ArgumentException">Thrown if a boolean value is not represented as "0" or "1".</exception>
+        /// \Remark <remarks>The validity of numeric values is not checked. Boolean values must be represented as "0" or "1". The type <see cref="DataType.Empty"/> discards the passed value.</remarks>
         public ExternalWorksheet AddCell(string address, string value)
         {
-            return AddCell(address, value, ExternalCellValue.DataType.SharedString);
+            return AddCell(address, value, ExternalCellValue.DataType.String);
         }
 
         /// <summary>
         /// Adds or replaces a cached cell value with defined typ.
         /// </summary>
         /// <param name="address">Address of the external cell</param>
-        /// <param name="value">Sting representation of the external cell value. A null value will be transformed to non-cached value (<see cref="ExternalCellValue.DataType.Empty"/>), represented by an empty string</param>
-        /// <param name="type">Data type of the external, cached cell</param>
+        /// <param name="value">
+        /// Value as string representation. Null will be transformed to the type <see cref="DataType.Empty"/>. The cached value will be an empty string in this case
+        /// </param>
+        /// <param name="type">Type of the external cell</param>
+        /// <exception cref="ArgumentException">Thrown if a boolean value is not represented as "0" or "1".</exception>
+        /// \Remark <remarks>The validity of numeric values is not checked. Boolean values must be represented as "0" or "1". The type <see cref="DataType.Empty"/> discards the passed value.</remarks>
         public ExternalWorksheet AddCell(string address, string value, ExternalCellValue.DataType type)
         {
             Validators.ValidateCellAddressExpression(address, Cell.AddressScope.SingleAddress);
@@ -80,9 +87,13 @@ namespace NanoXLSX
         /// Internal method to add a cached value, provided by the reader (roundtrip) 
         /// </summary>
         /// <param name="address">Address of the external cell</param>
-        /// <param name="value">Sting representation of the external cell value. A null value will be transformed to non-cached value (<see cref="ExternalCellValue.DataType.Empty"/>), represented by an empty string</param>
-        /// <param name="type">Data type of the external, cached cell</param>
+        /// <param name="value">
+        /// Value as string representation. Null will be transformed to the type <see cref="DataType.Empty"/>. The cached value will be an empty string in this case
+        /// </param>
+        /// <param name="type">Type of the external cell</param>
         /// <param name="cellMetaData">Optional metadata ID</param>
+        /// <exception cref="ArgumentException">Thrown if a boolean value is not represented as "0" or "1".</exception>
+        /// \Remark <remarks>The validity of numeric values is not checked. Boolean values must be represented as "0" or "1". The type <see cref="DataType.Empty"/> discards the passed value.</remarks>
         internal void AddCell(string address, string value, ExternalCellValue.DataType type, string cellMetaData)
         {
             AddCell(address, value, type);

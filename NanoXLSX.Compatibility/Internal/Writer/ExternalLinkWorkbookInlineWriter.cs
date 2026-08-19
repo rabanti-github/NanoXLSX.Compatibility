@@ -38,7 +38,8 @@ namespace NanoXLSX.Internal.Writer
             {
                 return; // Nothing to do
             }
-            RootElement.AddChildElement(externalReferences); // Add <externalReferences> to <workbook>
+            // XSD requires externalReferences to be after (mandatory) sheets and before (already existing) defined names 
+            RootElement.AddChildElementAfter(externalReferences, "functionGroups", "sheets"); // Add <externalReferences> to <workbook>
             ReplaceDefinedNames();
             // TODO add further workbook-related processing, if external links are somewhere else too
         }

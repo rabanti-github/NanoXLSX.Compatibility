@@ -494,16 +494,16 @@ namespace NanoXLSX.Compatibility.Test
             ExternalLink link = new ExternalLink();
             ExternalLinkBuilder builder = link.CreateBuilder();
             builder = builder.AddWorksheet("ws1");
-            builder.AddCell("A1", "C1", ExternalCellValue.DataType.Formula);
-            builder.AddCell("B2", "TRUE", ExternalCellValue.DataType.Boolean);
+            builder.AddCell("A1", "C1", ExternalCellValue.DataType.String);
+            builder.AddCell("B2", "1", ExternalCellValue.DataType.Boolean);
             ExternalLink result = builder.Build();
 
             Assert.Equal(2, result.Worksheets[0].Cells.Count);
             Assert.NotNull(result.Worksheets[0].Cells[new Address("A1")]);
             Assert.Equal("C1", result.Worksheets[0].Cells[new Address("A1")].Value);
-            Assert.Equal(ExternalCellValue.DataType.Formula, result.Worksheets[0].Cells[new Address("A1")].Type);
+            Assert.Equal(ExternalCellValue.DataType.String, result.Worksheets[0].Cells[new Address("A1")].Type);
             Assert.NotNull(result.Worksheets[0].Cells[new Address("B2")]);
-            Assert.Equal("TRUE", result.Worksheets[0].Cells[new Address("B2")].Value);
+            Assert.Equal("1", result.Worksheets[0].Cells[new Address("B2")].Value);
             Assert.Equal(ExternalCellValue.DataType.Boolean, result.Worksheets[0].Cells[new Address("B2")].Type);
         }
 

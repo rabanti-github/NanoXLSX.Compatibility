@@ -10,6 +10,7 @@ using NanoXLSX.Registry;
 using NanoXLSX.Registry.Attributes;
 using NanoXLSX.Utils;
 using NanoXLSX.Utils.Xml;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -83,6 +84,7 @@ namespace NanoXLSX.Internal.Writer
                 }
                 externalBook.AddChildElement(alternateUrls);
             }
+            // XSD: sheetNames > definedNames > sheetDataSet
             if (externalLink.Worksheets.Count > 0)
             {
                 XmlElement sheetNames = XmlElement.CreateElement("sheetNames");
@@ -134,7 +136,18 @@ namespace NanoXLSX.Internal.Writer
                     }
                     definedNames.AddChildElement(definedName);
                 }
-                externalBook.AddChildElement(definedNames);
+                if (externalBook.FindChildElementsByName("sheetDataSet").Any())
+                {
+                    externalBook.AddChildElementBefore(definedNames, "sheetDataSet");
+                }
+                else if (externalBook.FindChildElementsByName("sheetNames").Any())
+                {
+                    externalBook.AddChildElementAfter(definedNames, "sheetNames");
+                }
+                else
+                {
+                    externalBook.AddChildElement(definedNames);
+                }
             }
             return element;
         }
@@ -169,9 +182,12 @@ namespace NanoXLSX.Internal.Writer
                 {
                     element.AddAttribute("vm", ParserUtils.ToString(cell.Value.CellMetadata.Value));
                 }
-                if (!string.IsNullOrEmpty(cell.Value.Value))
+                if (cell.Value.Type != ExternalCellValue.DataType.Empty)
                 {
-                    element.InnerValue = XmlUtils.SanitizeXmlValue(cell.Value.Value);
+                    XmlElement valueElement = XmlElement.CreateElement("v");
+                    valueElement.InnerValue =
+                        XmlUtils.SanitizeXmlValue(cell.Value.Value);
+                    element.AddChildElement(valueElement);
                 }
                 value.AddChildElement(element);
             }
@@ -188,9 +204,7 @@ namespace NanoXLSX.Internal.Writer
                     return "d";
                 case ExternalCellValue.DataType.Error:
                     return "e";
-                case ExternalCellValue.DataType.SharedString:
-                    return "s";
-                case ExternalCellValue.DataType.Formula:
+                case ExternalCellValue.DataType.String: // s is not used
                     return "str";
                 default:
                     return null; // numeric
