@@ -5,8 +5,8 @@
  * You find a copy of the license in project folder or on: http://opensource.org/licenses/MIT
  */
 
-using NanoXLSX.Extensions;
 using NanoXLSX.Exceptions;
+using NanoXLSX.Extensions;
 using NanoXLSX.Interfaces.Writer;
 using NanoXLSX.Registry;
 using NanoXLSX.Registry.Attributes;

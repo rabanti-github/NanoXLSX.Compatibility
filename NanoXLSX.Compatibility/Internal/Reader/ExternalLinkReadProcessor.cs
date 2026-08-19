@@ -34,49 +34,97 @@ namespace NanoXLSX.Internal.Reader
         {
             List<ExternalLink> externalLinks = Workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY);
             List<string> externalReferenceRids = Workbook.AuxiliaryData.GetData<List<string>>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_REFERENCE_WORKBOOK_RID_ENTITY);
+            List<ExternalDefinedNameReference> rawDefinedNames = Workbook.AuxiliaryData.GetData<List<ExternalDefinedNameReference>>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_REFERENCE_DEFINED_NAMES_ENTITY);
             if (externalLinks == null || externalReferenceRids == null)
             {
                 return; // No (valid) external links in workbook
             }
-            Dictionary<string, HashSet<string>> definedNameMap = MapRidsToDefinedNames(externalReferenceRids, Workbook.GetDefinedNames());
             Dictionary<string, ExternalLink> externalReferences = new Dictionary<string, ExternalLink>();
             Dictionary<string, DefinedName> replacementMap = new Dictionary<string, DefinedName>();
-            PrepareUpdateDefinedNames(externalLinks, externalReferenceRids, externalReferences, replacementMap);
+            Dictionary<string, string> structuralReplacements = new Dictionary<string, string>();
+            PrepareUpdateDefinedNames(
+                externalLinks,
+                externalReferenceRids,
+                externalReferences,
+                replacementMap,
+                structuralReplacements,
+                rawDefinedNames);
+            RebuildDefinedNames(structuralReplacements, replacementMap);
             if (Workbook.Features.ContainsWorksheetFormulas && externalReferences.Count != 0 && replacementMap.Count > 0)
             {
                 UpdateCellFormulas(externalReferences, replacementMap);
             }
-            UpdateDefinedNames(replacementMap);
 
         }
 
-        private void PrepareUpdateDefinedNames(List<ExternalLink> externalLinks, List<string> externalReferenceRids, Dictionary<string, ExternalLink> externalReferences, Dictionary<string, DefinedName> replacementMap)
+        private void PrepareUpdateDefinedNames(
+            List<ExternalLink> externalLinks,
+            List<string> externalReferenceRids,
+            Dictionary<string, ExternalLink> externalReferences,
+            Dictionary<string, DefinedName> replacementMap,
+            Dictionary<string, string> structuralReplacements,
+            List<ExternalDefinedNameReference> rawDefinedNames)
         {
             for (int i = 0; i < externalReferenceRids.Count; i++)
             {
-                ExternalLink link = externalLinks.Where(l => externalReferenceRids[i].Equals(l.WorkbookRId, StringComparison.OrdinalIgnoreCase)).First();
+                ExternalLink link = externalLinks.FirstOrDefault(l => l != null && externalReferenceRids[i].Equals(l.WorkbookRId, StringComparison.OrdinalIgnoreCase));
                 if (link == null)
                 {
                     throw new IOException("Mismatch of read external links and references in workbooks detected. External references cannot be resolved.");
                 }
-                string rId = "[" + ParserUtils.ToString(i) + "]";
+                string rId = GetExternalLinkId(i);
                 externalReferences[rId] = link;
             }
             IReadOnlyList<DefinedName> definedNames = Workbook.GetDefinedNames();
             for (int i = 0; i < definedNames.Count; i++)
             {
                 DefinedName defiedName = definedNames[i];
-                if (defiedName.Features.ContainsExternalLinks)
+                string expression = GetDefinedNameExpression(defiedName, rawDefinedNames);
+                if (ExternalLinkFormulaUtils.DetectExternalLinkId(expression))
                 {
-                    if (ExternalLinkFormulaUtils.DetectExternalLinkId(defiedName.TextValue))
+                    string replacedExpression = ExternalLinkFormulaUtils.ReplaceExternalLinkId(expression, externalReferences);
+                    if (ExternalLinkFormulaUtils.DetectExternalLinkId(replacedExpression))
                     {
-                        string replacedExpression = ExternalLinkFormulaUtils.ReplaceExternalLinkId(defiedName.TextValue, externalReferences);
+                        throw new IOException("Mismatch of read external links and references in defined names detected. External references cannot be resolved.");
+                    }
+                    string id = GetDefinedNameId(defiedName);
+                    if (defiedName.Type == DefinedName.NameType.Formula)
+                    {
                         defiedName.ReplaceExpression(replacedExpression);
-                        string id = GetDefinedNameId(defiedName);
                         replacementMap[id] = defiedName;
+                    }
+                    else
+                    {
+                        structuralReplacements[id] = replacedExpression;
                     }
                 }
             }
+        }
+
+        private string GetDefinedNameExpression(DefinedName definedName, List<ExternalDefinedNameReference> rawDefinedNames)
+        {
+            if (rawDefinedNames != null)
+            {
+                foreach (ExternalDefinedNameReference rawDefinedName in rawDefinedNames)
+                {
+                    if (string.Equals(rawDefinedName.Name, definedName.Name, StringComparison.OrdinalIgnoreCase) &&
+                        IsSameScope(rawDefinedName.LocalSheetIndex, definedName.LocalSheet))
+                    {
+                        return rawDefinedName.Expression;
+                    }
+                }
+            }
+            return definedName.TextValue;
+        }
+
+        private bool IsSameScope(int? localSheetIndex, Worksheet localSheet)
+        {
+            if (!localSheetIndex.HasValue)
+            {
+                return localSheet == null;
+            }
+            int index = localSheetIndex.Value;
+            return index >= 0 && index < Workbook.Worksheets.Count && object.ReferenceEquals(Workbook.Worksheets[index], localSheet);
         }
 
         private void UpdateCellFormulas(Dictionary<string, ExternalLink> externalReferences, Dictionary<string, DefinedName> replacementMap)
@@ -127,19 +175,41 @@ namespace NanoXLSX.Internal.Reader
             }
         }
 
-        private void UpdateDefinedNames(Dictionary<string, DefinedName> replacementMap)
+        private void RebuildDefinedNames(Dictionary<string, string> structuralReplacements, Dictionary<string, DefinedName> replacementMap)
         {
-            if (replacementMap.Count == 0)
+            if (structuralReplacements.Count == 0)
             {
-                //return;
+                return;
             }
-            for (int i = Workbook.GetDefinedNames().Count - 1; i > 0; i--)
+
+            List<DefinedName> definedNames = Workbook.GetDefinedNames().ToList();
+            for (int i = definedNames.Count - 1; i >= 0; i--)
             {
-                string id = GetDefinedNameId(Workbook.GetDefinedNames()[i]);
-                if (replacementMap.TryGetValue(id, out DefinedName newValue))
+                DefinedName definedName = definedNames[i];
+                Workbook.RemoveDefinedName(definedName.Name, false, definedName.LocalSheet);
+            }
+
+            foreach (DefinedName definedName in definedNames)
+            {
+                string id = GetDefinedNameId(definedName);
+                if (structuralReplacements.TryGetValue(id, out string expression))
                 {
-                    Workbook.RemoveDefinedName(newValue.Name, false, newValue.LocalSheet); // Prevent removing formula references
-                    Workbook.AddDefinedName(newValue);
+                    DefinedName replacement = new DefinedName(
+                        Workbook,
+                        DefinedName.NameType.Formula,
+                        definedName.Name,
+                        expression,
+                        null,
+                        definedName.LocalSheet,
+                        definedName.Comment,
+                        true);
+                    Workbook.AddDefinedName(replacement);
+                    replacementMap[id] = replacement;
+                }
+                else
+                {
+                    definedName.Features.Add(Workbook.Features);
+                    Workbook.AddDefinedName(definedName);
                 }
             }
         }
@@ -158,38 +228,12 @@ namespace NanoXLSX.Internal.Reader
             return id;
         }
 
-
-        private static Dictionary<string, HashSet<string>> MapRidsToDefinedNames(List<string> rids, IReadOnlyList<DefinedName> definedNames)
+        /// <summary>
+        /// Gets the one-based external workbook identifier used in formula expressions.
+        /// </summary>
+        private static string GetExternalLinkId(int zeroBasedIndex)
         {
-            Dictionary<string, HashSet<string>> map = new Dictionary<string, HashSet<string>>();
-            if (definedNames.Count == 0)
-            {
-                return map;
-            }
-            List<string> ids = new List<string>();
-            for (int i = 0; i < rids.Count; i++)
-            {
-                ids.Add("[" + ParserUtils.ToString(i) + "]");
-            }
-            foreach (DefinedName definedName in definedNames)
-            {
-                if (definedName.HasExternalReferences)
-                {
-                    foreach (string id in ids)
-                    {
-                        if (ExternalLinkFormulaUtils.DetectExternalLinkId(definedName.TextValue, id))
-                        {
-                            if (!map.TryGetValue(definedName.Name, out HashSet<string> value))
-                            {
-                                value = new HashSet<string>();
-                                map.Add(definedName.Name, value);
-                            }
-                            value.Add(id);
-                        }
-                    }
-                }
-            }
-            return map;
+            return "[" + ParserUtils.ToString(zeroBasedIndex + 1) + "]";
         }
 
     }

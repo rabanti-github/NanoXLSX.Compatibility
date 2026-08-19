@@ -35,6 +35,11 @@ namespace NanoXLSX.Internal
         public const string EXTERNAL_REFERENCE_WORKBOOK_RID_ENTITY = "external-reference-workbook-rid-entity";
 
         /// <summary>
+        /// Entity ID for raw defined-name expressions containing external link identifiers
+        /// </summary>
+        public const string EXTERNAL_REFERENCE_DEFINED_NAMES_ENTITY = "external-reference-defined-names-entity";
+
+        /// <summary>
         /// Prefix for the unique package part index, used by <see cref="ExternalLinkPackageRegistry"/> and <see cref="ExternalLinkWriter"/>
         /// </summary>
         public const string UNIQUE_PACKAGE_PART_INDEX_PREFIX = "external-link-package-part-"; // add index after this

@@ -9,10 +9,12 @@ using NanoXLSX.Interfaces;
 using NanoXLSX.Interfaces.Reader;
 using NanoXLSX.Registry;
 using NanoXLSX.Registry.Attributes;
+using NanoXLSX.Utils;
 using NanoXLSX.Utils.Xml;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Xml;
 
 namespace NanoXLSX.Internal.Reader
@@ -38,6 +40,7 @@ namespace NanoXLSX.Internal.Reader
             try
             {
                 List<string> rIds = new List<string>();
+                List<ExternalDefinedNameReference> definedNames = new List<ExternalDefinedNameReference>();
                 using (XmlReader reader = XmlReader.Create(stream, XmlStreamUtils.CreateSettings()))
                 {
                     while (reader.Read())
@@ -45,10 +48,20 @@ namespace NanoXLSX.Internal.Reader
                         if (XmlStreamUtils.IsElement(reader, "externalReferences"))
                         {
                             ReadExternalReferencesRIds(reader.ReadSubtree(), rIds);
-                            Workbook.AuxiliaryData.SetData(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_REFERENCE_WORKBOOK_RID_ENTITY, rIds);
-                            break;
+                        }
+                        else if (XmlStreamUtils.IsElement(reader, "definedNames"))
+                        {
+                            ReadExternalDefinedNames(reader.ReadSubtree(), definedNames);
                         }
                     }
+                }
+                if (rIds.Count > 0)
+                {
+                    Workbook.AuxiliaryData.SetData(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_REFERENCE_WORKBOOK_RID_ENTITY, rIds);
+                }
+                if (definedNames.Count > 0)
+                {
+                    Workbook.AuxiliaryData.SetData(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_REFERENCE_DEFINED_NAMES_ENTITY, definedNames);
                 }
 
             }
@@ -71,6 +84,67 @@ namespace NanoXLSX.Internal.Reader
                     }
                 }
             }
+        }
+
+        private static void ReadExternalDefinedNames(XmlReader definitions, List<ExternalDefinedNameReference> definedNames)
+        {
+            while (definitions.Read())
+            {
+                if (!XmlStreamUtils.IsElement(definitions, "definedName"))
+                {
+                    continue;
+                }
+
+                string name = definitions.GetAttribute("name");
+                string localSheetId = definitions.GetAttribute("localSheetId");
+                int? localSheetIndex = string.IsNullOrEmpty(localSheetId)
+                    ? (int?)null
+                    : ParserUtils.ParseInt(localSheetId);
+                string expression = ReadElementText(definitions);
+                if (ExternalLinkFormulaUtils.DetectExternalLinkId(expression))
+                {
+                    definedNames.Add(new ExternalDefinedNameReference(name, localSheetIndex, expression));
+                }
+            }
+        }
+
+        private static string ReadElementText(XmlReader reader)
+        {
+            if (reader.IsEmptyElement)
+            {
+                return string.Empty;
+            }
+            StringBuilder builder = new StringBuilder();
+            while (reader.Read())
+            {
+                if (reader.NodeType == XmlNodeType.EndElement)
+                {
+                    break;
+                }
+                if (reader.NodeType == XmlNodeType.Text || reader.NodeType == XmlNodeType.CDATA ||
+                    reader.NodeType == XmlNodeType.SignificantWhitespace)
+                {
+                    builder.Append(reader.Value);
+                }
+            }
+            return builder.ToString();
+        }
+    }
+
+    /// <summary>
+    /// Raw external defined-name data retained until external-link relationships can be resolved.
+    /// </summary>
+    internal sealed class ExternalDefinedNameReference
+    {
+        public string Name { get; }
+        public int? LocalSheetIndex { get; }
+        public string Expression { get; }
+
+        public ExternalDefinedNameReference(string name, int? localSheetIndex, string expression)
+        {
+            Name = name;
+            LocalSheetIndex = localSheetIndex;
+            Expression = expression;
         }
     }
 }
