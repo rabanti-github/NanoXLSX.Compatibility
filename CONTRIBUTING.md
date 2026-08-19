@@ -69,7 +69,7 @@ We have come to the conclusion that AI-generated code (especially from agentic c
 
 * Please do not submit very large AI-driven refactorings without discussing them first. During code reviews, we must ensure that only the necessary scope has been changed in order to prevent side effects, compatibility issues, or inconsistencies.
 * Please make sure to carefully review AI-generated code before submitting it. Even an AI can have a bad day.
-* Please remove unnecessary comments, TODOs (where not needed), and other markup that only serves the AI. If you create (or have generated) context files for the code, do not commit them at this time. **Note**: A decision may be made later on whether to introduce a dedicated context directory (for Copilots / agents, etc.). However, there is an existing [`llms.txt`](./llms.txt).
+* Please remove unnecessary comments, TODOs (where not needed), and other markup that only serves the AI. If you create (or have generated) context files for the code, do not commit them at this time. **Note**: A decision may be made later on whether to introduce a dedicated context directory (for Copilots / agents, etc.). However, there is an existing [`llms.txt`](https://raw.githubusercontent.com/rabanti-github/NanoXLSX/refs/heads/master/llms.txt) in the main repository.
 * Please ensure that AI-generated code does not break any unit tests.
 * Please ensure that AI-generated unit tests are meaningful (not: `Assert.True(true)` or similar).
 * Please ensure that AI-generated code follows the project’s defined contribution, coding, and code style guidelines.

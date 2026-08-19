@@ -14,7 +14,7 @@ The **Compatibility** package is responsible to add compatibility functions to N
 
 Currently supported:
 
-- Handling of external links
+- **Handling of external links**
 
 ---
 
@@ -26,7 +26,7 @@ See the **[Change Log](https://github.com/rabanti-github/NanoXLSX.Compatibility/
 
 This is the first release if this package. It was set to v 3.x, to be consistent with the NanoXLSX v3 ecosystem
 
-## Road map
+## Road Map
 
 Possible future features (not yet in backlog):
 
@@ -35,6 +35,31 @@ Possible future features (not yet in backlog):
 ## :robot: For AI Agents
 
 For AI agents and LLM tooling, a machine-readable [`llms.txt`](https://raw.githubusercontent.com/rabanti-github/NanoXLSX/refs/heads/master/llms.txt) is available in the main repository.
+
+## Important Notes about the Usage of External Links
+
+If you add external links as:
+
+- Part of a defined name formula
+- Part of a cell formula
+
+... keep in mind: **The formula is not checked or validated** by this package. It may lead to an **invalid Excel file**, if you add a non-compliant formula.
+For example:
+
+```C#
+// The following defined name is invalid and will cause a repair dialog when opening with Excel
+workbook.AddDefinedNameFormula("invalidDefinedName", "C:\\temp\\[ext.xlsx]worksheet1!$A$3+$A$4");
+// The following defined name would be valid
+workbook.AddDefinedNameFormula("invalidDefinedName", "C:\\temp\\[ext.xlsx]worksheet1!$A$3+C:\\temp\\[ext.xlsx]worksheet1!$A$4");
+```
+
+Furthermore, all external links, used in defined names and cells, **must be registered**, otherwise it will lead to a invalid workbook:
+
+```C#
+ExternalLink link = new ExternalLink(@"C:\temp\ext.xlsx", "ext.xlsx");
+```
+
+Last, but not least: All external links, used in formulas, are to be written **as URIs / paths** and not as identifiers like `[1]`. The URIs / paths are not checked (target file may exist or not).
 
 ## Requirements
 
@@ -71,7 +96,48 @@ dotnet add package NanoXLSX.Compatibility
 
 ### Quick Start (manual)
 
-[TBD]
+```C#
+ Workbook workbook = new Workbook("worksheet1");
+ // Use external link in a cell formula
+ workbook.CurrentWorksheet.AddNextCellFormula("C:\\temp\\[ext1.xlsx]worksheet1!$A$1"); 
+
+// Use external link in a defined name
+ workbook.AddDefinedNameFormula("extLink1", "SUM(C:\\temp\\[ext1.xlsx]worksheet1!$A$3:$A$4)"); // within a formula expression
+ workbook.AddDefinedNameFormula("extLink2", "C:\\temp\\[ext2.xlsx]worksheet1!$A$3:$A$4"); // direct reference
+
+// Creating mandatory external links
+ ExternalLink link = new ExternalLink(@"C:\temp\ext1.xlsx", "ext1.xlsx");
+ ExternalLink link2 = new ExternalLink(@"C:\temp\ext2.xlsx", "ext2.xlsx");
+ // Alternatively, you can use:
+ // ExternalLinkBuilder builder3 = new ExternalLinkBuilder(@"C:\temp\ext1.xlsx", "ext1.xlsx");
+
+// Add cached data
+ ExternalLinkBuilder builder = link.CreateBuilder();
+ builder.AddWorksheet("worksheet1");
+ builder.AddCell("A1", "test");
+ builder.AddCell("A2", "1", ExternalCellValue.DataType.Boolean);
+ builder.AddWorksheet("ext2");
+ builder.AddCell("A1", "test2");
+
+// Add cached data
+ ExternalLinkBuilder builder2 = link2.CreateBuilder();
+ builder2.AddWorksheet("worksheet1");
+ builder2.AddCell("A1", "test");
+ builder2.AddCell("A2", "1", ExternalCellValue.DataType.Boolean);
+ builder2.AddCell("A3", "10", ExternalCellValue.DataType.Number);
+ builder2.AddCell("A4", "20");
+ builder2.AddWorksheet("worksheet2");
+ builder2.AddCell("A1", "test2");
+
+ link2 = builder2.Build();
+ link2.AddDefinedName(new ExternalDefinedName("extDefName", "A2"));
+
+// Register external links to the workbook (otherwise the workbook is invalid)
+ workbook.AddExternalLink(builder); // using a builder
+ workbook.AddExternalLink(link2); // sing the final 
+
+ workbook.SaveAs(fileName);
+```
 
 ## Further References
 
