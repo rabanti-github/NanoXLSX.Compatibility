@@ -66,12 +66,7 @@ namespace NanoXLSX.Extensions
         /// <returns>Returns a read-only list of external links, or an empty list, if none are defined in the workbook</returns>
         public static IReadOnlyList<ExternalLink> GetExternalLinks(this Workbook workbook)
         {
-            List<ExternalLink> externalLinks = workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY);
-            if (externalLinks == null)
-            {
-                return new List<ExternalLink>();
-            }
-            return externalLinks;
+            return workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY);
         }
 
         /// <summary>
