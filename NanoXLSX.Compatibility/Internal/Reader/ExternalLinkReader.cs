@@ -49,7 +49,7 @@ namespace NanoXLSX.Internal.Reader
         /// </summary>
         public Action<Stream, Workbook, string, IOptions, int?> InlinePluginHandler { get; set; }
 
-        public string StreamEntryName => null; // Not used
+        public string StreamEntryName => null; // NoOp
 
         public RelationshipInfo CurrentRelationship { get; set; }
 
@@ -91,6 +91,7 @@ namespace NanoXLSX.Internal.Reader
         public void Execute()
         {
             Dictionary<int, ExternalWorksheet> worksheets = new Dictionary<int, ExternalWorksheet>();
+            List<ExternalDefinedName> definedNames = new List<ExternalDefinedName>();
             string targetRelationshipId = null;
             string absoluteAlternateRelationshipId = null;
             string relativeAlternateRelationshipId = null;
@@ -129,6 +130,10 @@ namespace NanoXLSX.Internal.Reader
                             {
                                 GetSheetData(reader.ReadSubtree(), worksheets);
                             }
+                            else if (XmlStreamUtils.IsElement(reader, "definedNames"))
+                            {
+                                GetDefinedNames(reader.ReadSubtree(), definedNames);
+                            }
                         }
                     }
                 }
@@ -148,14 +153,14 @@ namespace NanoXLSX.Internal.Reader
                 {
                     link.AddWorksheet(worksheet.Value);
                 }
+                foreach (ExternalDefinedName definedName in definedNames)
+                {
+                    link.AddDefinedName(definedName);
+                }
                 link.WorkbookRId = CurrentRelationship.Id;
 
                 List<ExternalLink> externalLinks = Workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY);
-                int index = 0;
-                if (externalLinks != null && externalLinks.Count > 0)
-                {
-                    index = externalLinks.Count;
-                }
+                int index = externalLinks.Count;
                 Workbook.AuxiliaryData.SetData(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY, index, link, true);
             }
             catch (Exception ex)
@@ -200,13 +205,10 @@ namespace NanoXLSX.Internal.Reader
             {
                 if (XmlStreamUtils.IsElement(sheetNames, "sheetName"))
                 {
-                    if (!string.IsNullOrEmpty(sheetNames.Name))
-                    {
-                        string val = sheetNames.GetAttribute("val");
-                        ExternalWorksheet worksheet = new ExternalWorksheet(val);
-                        worksheets[index] = worksheet;
-                        index++;
-                    }
+                    string val = sheetNames.GetAttribute("val");
+                    ExternalWorksheet worksheet = new ExternalWorksheet(val);
+                    worksheets[index] = worksheet;
+                    index++;
                 }
             }
         }
@@ -214,24 +216,48 @@ namespace NanoXLSX.Internal.Reader
         private static void GetSheetData(XmlReader sheetDataSet, Dictionary<int, ExternalWorksheet> worksheets)
         {
             int currentIndex = -1;
+            ExternalWorksheet currentWorksheet = null;
             while (sheetDataSet.Read())
             {
                 if (XmlStreamUtils.IsElement(sheetDataSet, "sheetData"))
                 {
                     string id = sheetDataSet.GetAttribute("sheetId");
                     currentIndex = ParserUtils.ParseInt(id);
+                    if (!worksheets.TryGetValue(currentIndex, out currentWorksheet))
+                    {
+                        throw new IOException("The cached worksheet with sheet ID '" + id + "' is not defined.");
+                    }
                     string refreshErrors = sheetDataSet.GetAttribute("refreshErrors");
                     if (refreshErrors != null)
                     {
                         int parserdSate = ParserUtils.ParseBinaryBool(refreshErrors);
-                        worksheets[currentIndex].RefreshErros = parserdSate == 1 ? true : false;
+                        currentWorksheet.RefreshErros = parserdSate == 1 ? true : false;
                     }
                     continue;
                 }
                 else if (XmlStreamUtils.IsElement(sheetDataSet, "row"))
                 {
-                    GetRowData(sheetDataSet.ReadSubtree(), worksheets[currentIndex]);
+                    GetRowData(sheetDataSet.ReadSubtree(), currentWorksheet);
                 }
+            }
+        }
+
+        private static void GetDefinedNames(XmlReader definitions, List<ExternalDefinedName> definedNames)
+        {
+            while (definitions.Read())
+            {
+                if (!XmlStreamUtils.IsElement(definitions, "definedName"))
+                {
+                    continue;
+                }
+                ExternalDefinedName definedName = new ExternalDefinedName(
+                    definitions.GetAttribute("name"),
+                    definitions.GetAttribute("refersTo"),
+                    false)
+                {
+                    RelationshipId = definitions.GetAttribute("sheetId")
+                };
+                definedNames.Add(definedName);
             }
         }
 
@@ -239,46 +265,51 @@ namespace NanoXLSX.Internal.Reader
         {
             while (row.Read())
             {
-                bool hasCell = false;
-                string address = null;
-                string type = null;
-                string cellMetaData = null; // Roundtrip only
-                if (XmlStreamUtils.IsElement(row, "cell"))
+                if (!XmlStreamUtils.IsElement(row, "cell"))
                 {
-                    address = row.GetAttribute("r");
-                    type = row.GetAttribute("t");
-                    cellMetaData = row.GetAttribute("vm");
-                    hasCell = true;
                     continue;
                 }
-                else if (hasCell && XmlStreamUtils.IsElement(row, "v"))
+
+                string address = row.GetAttribute("r");
+                string type = row.GetAttribute("t");
+                string cellMetaData = row.GetAttribute("vm"); // Roundtrip only
+                ExternalCellValue.DataType dataType = ExternalCellValue.DataType.Number;
+                if (type != null)
                 {
-                    ExternalCellValue.DataType dataType;
-                    dataType = ExternalCellValue.DataType.Number;
-                    if (type != null)
+                    switch (type)
                     {
-                        switch (type)
+                        case "b":
+                            dataType = ExternalCellValue.DataType.Boolean;
+                            break;
+                        case "d":
+                            dataType = ExternalCellValue.DataType.Date;
+                            break;
+                        case "e":
+                            dataType = ExternalCellValue.DataType.Error;
+                            break;
+                        case "s": // Should not be used
+                        case "str":
+                            dataType = ExternalCellValue.DataType.String;
+                            break;
+                    }
+                }
+
+                string value = null;
+                if (!row.IsEmptyElement)
+                {
+                    using (XmlReader cell = row.ReadSubtree())
+                    {
+                        while (cell.Read())
                         {
-                            case "b":
-                                dataType = ExternalCellValue.DataType.Boolean;
+                            if (XmlStreamUtils.IsElement(cell, "v"))
+                            {
+                                value = cell.ReadElementContentAsString();
                                 break;
-                            case "d":
-                                dataType = ExternalCellValue.DataType.Date;
-                                break;
-                            case "e":
-                                dataType = ExternalCellValue.DataType.Error;
-                                break;
-                            case "s": // Should not be used
-                            case "str":
-                                dataType = ExternalCellValue.DataType.String;
-                                break;
-                            default:
-                                break;
+                            }
                         }
                     }
-                    string value = row.ReadInnerXml();
-                    worksheet.AddCell(address, value, dataType, cellMetaData);
                 }
+                worksheet.AddCell(address, value, dataType, cellMetaData);
             }
         }
         #endregion

@@ -102,11 +102,13 @@ namespace NanoXLSX.Compatibility.Test.Writer
                 Workbook = workbook;
             }
 
+            [ExcludeFromCodeCoverage]
             public void MarkFeatureAsPrepared(string featureUuid)
             {
                 preparedFeatures.Add(featureUuid);
             }
 
+            [ExcludeFromCodeCoverage]
             public bool IsFeaturePrepared(string featureUuid)
             {
                 return preparedFeatures.Contains(featureUuid);

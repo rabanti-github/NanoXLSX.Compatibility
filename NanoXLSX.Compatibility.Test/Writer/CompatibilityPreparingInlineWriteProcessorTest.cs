@@ -313,6 +313,114 @@ namespace NanoXLSX.Compatibility.Test.Writer
             Assert.Null(GetResolvedDefinedName(workbook, 1));
         }
 
+        [Fact(DisplayName = "Test skipping unrelated worksheets and cells during external-link preparation")]
+        public void SkipsUnrelatedWorksheetsAndCellsTest()
+        {
+            Workbook workbook = new Workbook();
+            Worksheet externalSheet = new Worksheet("External");
+            Worksheet unrelatedSheet = new Worksheet("Unrelated");
+            workbook.AddWorksheet(externalSheet);
+            workbook.AddWorksheet(unrelatedSheet);
+            const string externalExpression = @"C:\data\[book.xlsx]Data!A1";
+            externalSheet.AddCellFormula(externalExpression, "A1");
+            externalSheet.AddCell("plain text", "A2");
+            externalSheet.AddCellFormula("SUM(A1:A2)", "A3");
+            unrelatedSheet.AddCellFormula("SUM(B1:B2)", "B1");
+
+            Execute(workbook, @"C:\data\book.xlsx");
+
+            Assert.Equal("[1]Data!A1", GetResolvedFormula(workbook, externalSheet, "A1").Expression);
+            Assert.Null(GetResolvedFormula(workbook, externalSheet, "A2"));
+            Assert.Null(GetResolvedFormula(workbook, externalSheet, "A3"));
+            Assert.Null(GetResolvedFormula(workbook, unrelatedSheet, "B1"));
+        }
+
+        [Theory(DisplayName = "Test rejection of numeric OOXML external-link identifiers")]
+        [InlineData(false, "cell formula", "Sheet1!A1")]
+        [InlineData(true, "defined name", "NumericExternalName")]
+        public void RejectsNumericExternalLinkIdentifiersTest(bool useDefinedName, string sourceKind, string sourceIdentifier)
+        {
+            Workbook workbook = new Workbook("Sheet1");
+            if (useDefinedName)
+            {
+                workbook.AddDefinedNameFormula(sourceIdentifier, "[1]Data!A1");
+            }
+            else
+            {
+                workbook.CurrentWorksheet.AddCellFormula("[1]Data!A1", "A1");
+            }
+
+            NotSupportedContentException exception = Assert.Throws<NotSupportedContentException>(
+                () => Execute(workbook, @"C:\data\book.xlsx"));
+
+            Assert.Contains(sourceKind, exception.Message);
+            Assert.Contains(sourceIdentifier, exception.Message);
+            Assert.Contains("numeric OOXML", exception.Message);
+            Assert.Contains("AddExternalLink", exception.Message);
+        }
+
+        [Fact(DisplayName = "Test replacement outside string constants containing escaped quotes")]
+        public void ReplacesExternalLinksOutsideEscapedStringConstantsTest()
+        {
+            Workbook workbook = new Workbook("Sheet1");
+            const string expression = @"=""C:\data\[book.xlsx]Fake!A1 and """"quoted""""""&C:\data\[book.xlsx]Data!A1";
+            workbook.CurrentWorksheet.AddCellFormula(expression, "A1");
+
+            Execute(workbook, @"C:\data\book.xlsx");
+
+            Assert.Equal(
+                @"=""C:\data\[book.xlsx]Fake!A1 and """"quoted""""""&[1]Data!A1",
+                GetResolvedFormula(workbook, workbook.CurrentWorksheet, "A1").Expression);
+            Assert.Equal(expression, workbook.CurrentWorksheet.GetCell(0, 0).Formula.Expression);
+        }
+
+        [Fact(DisplayName = "Test rejection of a filename-only candidate inside a different explicit path")]
+        public void RejectsFilenameOnlyCandidateWithinDifferentPathTest()
+        {
+            Workbook workbook = new Workbook("Sheet1");
+            workbook.CurrentWorksheet.AddCellFormula(@"C:\other\[book.xlsx]Data!A1", "A1");
+
+            NotSupportedContentException exception = Assert.Throws<NotSupportedContentException>(
+                () => Execute(workbook, "book.xlsx"));
+
+            Assert.Contains("[book.xlsx]", exception.Message);
+            Assert.Contains("unregistered external link", exception.Message);
+        }
+
+        [Fact(DisplayName = "Test ambiguity detection outside string constants containing escaped quotes")]
+        public void DetectsAmbiguityOutsideEscapedStringConstantsTest()
+        {
+            Workbook workbook = new Workbook("Sheet1");
+            workbook.CurrentWorksheet.AddCellFormula(
+                @"=""/data/[BOOK.xlsx]Ignored and """"quoted""""""+/data/[BOOK.xlsx]Data!A1",
+                "A1");
+
+            NotSupportedContentException exception = Assert.Throws<NotSupportedContentException>(() => Execute(
+                workbook,
+                "/data/Book.xlsx",
+                "/data/book.xlsx"));
+
+            Assert.Contains("ambiguous external link", exception.Message);
+            Assert.Contains("1, 2", exception.Message);
+        }
+
+        [Theory(DisplayName = "Test formula resolution through specialized URI candidate branches")]
+        [InlineData("file://localhost/C:/temp/book.xlsx", "C:\\temp\\[book.xlsx]Data!A1")]
+        [InlineData("https://example.com/path/book.xlsx", "https://example.com/path/[book.xlsx]Data!A1")]
+        [InlineData("relative/directory/[book.xlsx]", "relative/directory/[book.xlsx]Data!A1")]
+        public void ResolvesSpecializedUriCandidateBranchesTest(string linkUri, string expression)
+        {
+            Workbook workbook = new Workbook("Sheet1");
+            workbook.CurrentWorksheet.AddCellFormula(expression, "A1");
+
+            Execute(workbook, linkUri);
+
+            Assert.Equal(
+                "[1]Data!A1",
+                GetResolvedFormula(workbook, workbook.CurrentWorksheet, "A1").Expression);
+            Assert.Equal(expression, workbook.CurrentWorksheet.GetCell(0, 0).Formula.Expression);
+        }
+
         #region helperMethods
 
         private static void Execute(Workbook workbook, params string[] links)

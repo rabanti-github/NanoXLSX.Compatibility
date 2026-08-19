@@ -37,8 +37,10 @@ namespace NanoXLSX.Internal.Writer
         public void Init(IBaseWriter baseWriter)
         {
             this.Workbook = baseWriter.Workbook;
-            List<ExternalLink> storedExternalLinks = Workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY);
-            externalLinks = storedExternalLinks == null ? new List<ExternalLink>() : storedExternalLinks.OfType<ExternalLink>().ToList();
+            externalLinks = Workbook.AuxiliaryData
+                .GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY)
+                .OfType<ExternalLink>()
+                .ToList();
             maxIndex = externalLinks.Count - 1;
         }
 
@@ -105,12 +107,9 @@ namespace NanoXLSX.Internal.Writer
                         sheetData.AddAttribute("refreshErrors", ParserUtils.ToString(sheet.RefreshErros.Value == true ? 1 : 0));
                     }
                     List<XmlElement> row = GetRowData(sheet);
-                    if (row.Count > 0)
+                    foreach (XmlElement rowElement in row)
                     {
-                        foreach (XmlElement rowElement in row)
-                        {
-                            sheetData.AddChildElement(rowElement);
-                        }
+                        sheetData.AddChildElement(rowElement);
                     }
                     sheetDataSet.AddChildElement(sheetData);
                     sheetId++;
@@ -139,10 +138,6 @@ namespace NanoXLSX.Internal.Writer
                 {
                     externalBook.AddChildElementBefore(definedNames, "sheetDataSet");
                 }
-                else if (externalBook.FindChildElementsByName("sheetNames").Any())
-                {
-                    externalBook.AddChildElementAfter(definedNames, "sheetNames");
-                }
                 else
                 {
                     externalBook.AddChildElement(definedNames);
@@ -156,7 +151,7 @@ namespace NanoXLSX.Internal.Writer
         {
             if (sheet.Cells.Count == 0)
             {
-                return new List<XmlElement>(); ;
+                return new List<XmlElement>();
             }
             ReadOnlyDictionary<Address, ExternalCellValue> cells = sheet.Cells;
             SortedDictionary<int, XmlElement> rows = new SortedDictionary<int, XmlElement>();

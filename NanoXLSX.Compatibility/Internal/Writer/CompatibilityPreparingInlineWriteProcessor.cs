@@ -52,10 +52,10 @@ namespace NanoXLSX.Internal.Writer
             {
                 return; // No external links to process
             }
-            List<ExternalLink> storedExternalLinks = WriteContext.Workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY);
-            List<ExternalLink> externalLinks = storedExternalLinks == null
-                ? new List<ExternalLink>()
-                : storedExternalLinks.OfType<ExternalLink>().ToList(); // Returns a null-free list
+            List<ExternalLink> externalLinks = WriteContext.Workbook.AuxiliaryData
+                .GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY)
+                .OfType<ExternalLink>()
+                .ToList(); // Returns a null-free list
             List<ExternalLinkCandidate> candidates = CreateExternalLinkCandidates(externalLinks);
             if (WriteContext.Workbook.Features.ContainsWorksheetFormulas)
             {
@@ -146,16 +146,12 @@ namespace NanoXLSX.Internal.Writer
         }
 
         /// <summary>
-        /// Gets the formula expression of a cell. If a <see cref="FormulaData"/> objects is not existing, the cell value will be used
+        /// Gets the formula expression of a formula cell.
         /// </summary>
         /// <param name="cell">Cell to check</param>
         /// <returns>Expression of the formula</returns>
         private static string GetFormulaExpression(Cell cell)
         {
-            if (cell.Formula == null)
-            {
-                return cell.Value as string ?? cell.Value?.ToString();
-            }
             if (cell.Formula.DefinedNameReference != null)
             {
                 return cell.Formula.DefinedNameReference.Name;
@@ -190,11 +186,6 @@ namespace NanoXLSX.Internal.Writer
             SourceInfo sourceInfo,
             List<ExternalLinkCandidate> candidates)
         {
-            if (string.IsNullOrEmpty(expression))
-            {
-                return null;
-            }
-
             if (ExternalLinkFormulaUtils.DetectExternalLinkId(expression))
             {
                 throw GetUnsupportedNumericReference(sourceInfo);
@@ -206,11 +197,11 @@ namespace NanoXLSX.Internal.Writer
             HashSet<int> matchedIndexes = new HashSet<int>();
             foreach (ExternalLinkCandidate candidate in candidates)
             {
-                if (IndexOfOutsideStringConstants(
+                if (!TryReplaceOutsideStringConstants(
                     resolvedExpression,
                     candidate.Text,
-                    0,
-                    StringComparison.Ordinal) < 0)
+                    "[" + ParserUtils.ToString(candidate.LinkIndexes[0]) + "]",
+                    out string replacedExpression))
                 {
                     continue;
                 }
@@ -220,14 +211,6 @@ namespace NanoXLSX.Internal.Writer
                 }
 
                 int linkIndex = candidate.LinkIndexes[0];
-                string replacedExpression = ReplaceOutsideStringConstants(
-                    resolvedExpression,
-                    candidate.Text,
-                    "[" + ParserUtils.ToString(linkIndex) + "]");
-                if (object.ReferenceEquals(replacedExpression, resolvedExpression))
-                {
-                    continue;
-                }
                 resolvedExpression = replacedExpression;
                 matchedIndexes.Add(linkIndex);
             }
@@ -327,14 +310,12 @@ namespace NanoXLSX.Internal.Writer
         /// <summary>
         /// Replaces all ordinal occurrences outside Excel string constants.
         /// </summary>
-        private static string ReplaceOutsideStringConstants(string expression, string oldValue, string newValue)
+        private static bool TryReplaceOutsideStringConstants(
+            string expression,
+            string oldValue,
+            string newValue,
+            out string result)
         {
-            int firstMatch = expression.IndexOf(oldValue, StringComparison.Ordinal);
-            if (firstMatch < 0)
-            {
-                return expression;
-            }
-
             System.Text.StringBuilder builder = null;
             bool insideStringConstant = false;
             int unchangedSectionStart = 0;
@@ -370,10 +351,12 @@ namespace NanoXLSX.Internal.Writer
 
             if (builder == null)
             {
-                return expression;
+                result = expression;
+                return false;
             }
             builder.Append(expression, unchangedSectionStart, expression.Length - unchangedSectionStart);
-            return builder.ToString();
+            result = builder.ToString();
+            return true;
         }
 
         /// <summary>
@@ -517,11 +500,6 @@ namespace NanoXLSX.Internal.Writer
             {
                 string remotePath = path.TrimStart('/');
 
-                // "file://server" does not identify a file. Returning null is intentional; AddPathCandidates handles it.
-                if (remotePath.Length == 0)
-                {
-                    return null;
-                }
                 return "//" + uri.Host + "/" + remotePath;
             }
 
@@ -545,12 +523,6 @@ namespace NanoXLSX.Internal.Writer
         {
             string formulaPath = ToFormulaPath(path);
 
-            // HashSet<string> permits null values in these target frameworks. Therefore the null check must happen before candidates.Add().
-
-            if (formulaPath == null)
-            {
-                return;
-            }
             candidates.Add(formulaPath);
             if (!addSeparatorAliases)
             {
@@ -569,11 +541,6 @@ namespace NanoXLSX.Internal.Writer
         /// </returns>
         private static string ToFormulaPath(string path)
         {
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                return null;
-            }
-
             string value = path.Trim();
 
             int separator = Math.Max(value.LastIndexOf('/'), value.LastIndexOf('\\'));
@@ -590,13 +557,6 @@ namespace NanoXLSX.Internal.Writer
             {
                 directory = string.Empty;
                 filename = value;
-            }
-
-            //A path ending with a separator denotes a directory or host, not a file.
-
-            if (filename.Length == 0)
-            {
-                return null;
             }
 
             if (filename[0] == '[' && filename[filename.Length - 1] == ']')

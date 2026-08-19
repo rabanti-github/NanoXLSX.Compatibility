@@ -20,7 +20,7 @@ namespace NanoXLSX.Internal.Writer
     {
         private Worksheet currentWorksheet;
         public Workbook Workbook { get; set; }
-        public IWriteContext WriteContext { get; set; }
+        public IWriteContext WriteContext { get; set; } // NoOp
         public XmlElement RootElement { get; set; }
 
         public XmlElement XmlElement { get; } // NoOp
@@ -47,7 +47,7 @@ namespace NanoXLSX.Internal.Writer
         {
             Dictionary<int, Dictionary<string, ExternalLinkResolution>> externalLinks =
                 Workbook.AuxiliaryData.GetData<Dictionary<int, Dictionary<string, ExternalLinkResolution>>>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_RESOLVED_FORMULAS_ENTITY);
-            if (!currentWorksheet.Features.ContainsWorksheetFormulas || externalLinks == null || externalLinks.Count == 0 || !externalLinks.TryGetValue(currentWorksheet.SheetID, out Dictionary<string, ExternalLinkResolution> externalLink))
+            if (externalLinks == null || externalLinks.Count == 0 || !externalLinks.TryGetValue(currentWorksheet.SheetID, out Dictionary<string, ExternalLinkResolution> externalLink))
             {
                 return; // No formulas or external links to process
             }

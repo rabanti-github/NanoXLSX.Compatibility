@@ -20,7 +20,7 @@ namespace NanoXLSX.Internal.Writer
     internal class ExternalLinkWorkbookInlineWriter : IPluginInlineWriter
     {
         public Workbook Workbook { get; set; }
-        public IWriteContext WriteContext { get; set; }
+        public IWriteContext WriteContext { get; set; } // NoOp
         public XmlElement RootElement { get; set; }
 
         public XmlElement XmlElement { get; } // NoOp
