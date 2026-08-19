@@ -1,14 +1,19 @@
 using NanoXLSX.Extensions;
+using NanoXLSX.Registry;
 using System.Linq;
 using Xunit;
 
 namespace NanoXLSX.Compatibility.Test.Reader
 {
+    // Ensure that these tests are executed sequentially, since static repository methods may be called 
+    [Collection(nameof(SequentialCollection))]
     public class ExternalLinkRoundTripTest
     {
         [Fact(DisplayName = "Test round trip of external links, formulas, defined names, and cached data")]
         public void RoundTripsExternalLinkWorkbookDataWithoutMutatingSource()
         {
+            PlugInLoader.DisposePlugins();
+            PlugInLoader.Initialize();
             Workbook source = new Workbook("Sheet1");
             const string cellExpression = @"C:\data\[first.xlsx]Data!A1+D:\other\[second.xlsx]Other!B2";
             const string definedNameExpression = @"C:\data\[first.xlsx]Data!$A$1";
