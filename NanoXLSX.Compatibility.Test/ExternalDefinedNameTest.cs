@@ -11,6 +11,10 @@ namespace NanoXLSX.Compatibility.Test
             ExternalDefinedName name = new ExternalDefinedName("a", "b");
             Assert.Equal("a", name.Name);
             Assert.Equal("b", name.RefersTo);
+            Assert.Null(name.RelationshipId);
+
+            name.RelationshipId = "test";
+            Assert.Equal("test", name.RelationshipId);
         }
 
         [Theory(DisplayName = "Test of the constructor handling")]

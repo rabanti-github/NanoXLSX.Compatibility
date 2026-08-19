@@ -156,7 +156,7 @@ namespace NanoXLSX.Internal
         /// </summary>
         internal static string ReplaceExternalLinkId(string expression, Dictionary<string, ExternalLink> links)
         {
-            if (expression.Length == 0 || links.Count == 0)
+            if (expression == null || expression.Length == 0 || links == null || links.Count == 0)
             {
                 return expression;
             }

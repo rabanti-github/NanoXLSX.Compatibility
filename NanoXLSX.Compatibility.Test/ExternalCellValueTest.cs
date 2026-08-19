@@ -1,21 +1,23 @@
-﻿using Xunit;
+﻿using System;
+using Xunit;
 
 namespace NanoXLSX.Compatibility.Test
 {
     public class ExternalCellValueTest
     {
 
-        [Fact(DisplayName = "Test of the property handling")]
-        public void PropertiesTest()
+        [Theory(DisplayName = "Test of the property handling")]
+        [InlineData(null, "", ExternalCellValue.DataType.Empty)]
+        [InlineData("test", "test", ExternalCellValue.DataType.String)]
+        public void PropertiesTest(string value, string expectedValue, ExternalCellValue.DataType expectedType)
         {
-            ExternalCellValue cellValue = new ExternalCellValue(null);
-            Assert.Equal("", cellValue.Value); // Default behavior
-            Assert.Equal(ExternalCellValue.DataType.Empty, cellValue.Type); // Default behavior
+            ExternalCellValue cellValue = new ExternalCellValue(value);
+            Assert.Equal(expectedValue, cellValue.Value);
+            Assert.Equal(expectedType, cellValue.Type);
+            Assert.Null(cellValue.CellMetadata);
 
-            ExternalCellValue cellValue2 = new ExternalCellValue("test");
-            Assert.Equal("test", cellValue2.Value);
-            Assert.Equal(ExternalCellValue.DataType.String, cellValue2.Type); // Default behavior
-
+            cellValue.CellMetadata = 22;
+            Assert.Equal(22, cellValue.CellMetadata);
         }
 
         [Theory(DisplayName = "Test of the constructor handling")]
@@ -26,6 +28,9 @@ namespace NanoXLSX.Compatibility.Test
         [InlineData("", "", ExternalCellValue.DataType.Error)]
         [InlineData("test", "test", ExternalCellValue.DataType.String)]
         [InlineData("1", "1", ExternalCellValue.DataType.Boolean)]
+        [InlineData("true", "1", ExternalCellValue.DataType.Boolean)]
+        [InlineData("0", "0", ExternalCellValue.DataType.Boolean)]
+        [InlineData("false", "0", ExternalCellValue.DataType.Boolean)]
         [InlineData("1587", "1587", ExternalCellValue.DataType.Date)]
         [InlineData("A5", "A5", ExternalCellValue.DataType.String)] // Formula = string
         public void ConstructorTest(string given, string expected, ExternalCellValue.DataType type)
@@ -33,6 +38,16 @@ namespace NanoXLSX.Compatibility.Test
             ExternalCellValue cellValue = new ExternalCellValue(given, type);
             Assert.Equal(expected, cellValue.Value);
             Assert.Equal(type, cellValue.Type);
+        }
+
+        [Theory(DisplayName = "Test of the failing constructor handling")]
+        [InlineData("test", ExternalCellValue.DataType.Boolean)]
+        [InlineData("", ExternalCellValue.DataType.Boolean)]
+        [InlineData("2", ExternalCellValue.DataType.Boolean)]
+        public void FailingConstructorTest(string given, ExternalCellValue.DataType type)
+        {
+            Assert.ThrowsAny<Exception>(() => new ExternalCellValue(given, type));
+
         }
 
     }

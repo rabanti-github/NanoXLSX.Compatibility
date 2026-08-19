@@ -67,7 +67,7 @@ namespace NanoXLSX.Internal.Reader
             }
             catch (Exception ex)
             {
-                throw new IOException("The XML entry could not be read from the " + nameof(stream) + ". Please see the inner exception:", ex);
+                throw new Exceptions.IOException("The XML entry could not be read from the " + nameof(stream) + ". Please see the inner exception:", ex);
             }
         }
 
@@ -97,9 +97,7 @@ namespace NanoXLSX.Internal.Reader
 
                 string name = definitions.GetAttribute("name");
                 string localSheetId = definitions.GetAttribute("localSheetId");
-                int? localSheetIndex = string.IsNullOrEmpty(localSheetId)
-                    ? (int?)null
-                    : ParserUtils.ParseInt(localSheetId);
+                int? localSheetIndex = string.IsNullOrEmpty(localSheetId) ? (int?)null : ParserUtils.ParseInt(localSheetId);
                 string expression = ReadElementText(definitions);
                 if (ExternalLinkFormulaUtils.DetectExternalLinkId(expression))
                 {

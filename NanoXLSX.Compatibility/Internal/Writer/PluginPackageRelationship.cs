@@ -10,14 +10,29 @@ using System.IO.Packaging;
 
 namespace NanoXLSX.Internal.Writer
 {
+    /// <summary>
+    /// Class representing the interface implementation of <see cref="IPluginPackageRelationship"/>
+    /// </summary>
     internal class PluginPackageRelationship : IPluginPackageRelationship
     {
+        /// <summary>
+        /// Relationship ID (rId)
+        /// </summary>
         public string RelationshipId { get; set; }
 
+        /// <summary>
+        /// Relationship type URI (definition)
+        /// </summary>
         public string RelationshipType { get; set; }
 
+        /// <summary>
+        /// Target URI
+        /// </summary>
         public string Target { get; set; }
 
+        /// <summary>
+        /// Target mode of the relationship URI
+        /// </summary>
         public TargetMode TargetMode { get; set; }
     }
 }

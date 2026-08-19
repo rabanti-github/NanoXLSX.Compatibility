@@ -9,7 +9,7 @@ using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using Xunit;
 
-namespace NanoXLSX.Compatibility.Test
+namespace NanoXLSX.Compatibility.Test.Writer
 {
     public class CompatibilityPreparingInlineWriteProcessorTest
     {

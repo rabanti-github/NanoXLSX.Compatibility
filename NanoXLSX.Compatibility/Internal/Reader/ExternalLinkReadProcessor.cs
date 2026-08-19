@@ -35,7 +35,7 @@ namespace NanoXLSX.Internal.Reader
             List<ExternalLink> externalLinks = Workbook.AuxiliaryData.GetDataList<ExternalLink>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_LINK_OBJECT_ENTITY);
             List<string> externalReferenceRids = Workbook.AuxiliaryData.GetData<List<string>>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_REFERENCE_WORKBOOK_RID_ENTITY);
             List<ExternalDefinedNameReference> rawDefinedNames = Workbook.AuxiliaryData.GetData<List<ExternalDefinedNameReference>>(PlugInUUID.CompatibilityInlineProcessor, CompatibilityConstants.EXTERNAL_REFERENCE_DEFINED_NAMES_ENTITY);
-            if (externalLinks == null || externalReferenceRids == null)
+            if (externalReferenceRids == null)
             {
                 return; // No (valid) external links in workbook
             }
@@ -133,41 +133,25 @@ namespace NanoXLSX.Internal.Reader
             {
                 foreach (KeyValuePair<string, Cell> cell in worksheet.Cells)
                 {
-                    if (cell.Value.DataType == Cell.CellType.Formula)
+                    if (cell.Value.DataType == Cell.CellType.Formula && cell.Value.Formula != null)
                     {
-                        if (cell.Value.Formula == null && cell.Value.Value != null)
+                        string originalValue = cell.Value.Value?.ToString() ?? string.Empty;
+                        if (ExternalLinkFormulaUtils.DetectExternalLinkId(originalValue))
                         {
-                            string originalValue = cell.Value.Value?.ToString() ?? string.Empty;
-                            if (ExternalLinkFormulaUtils.DetectExternalLinkId(originalValue))
+                            string replacement = ExternalLinkFormulaUtils.ReplaceExternalLinkId(originalValue, externalReferences);
+                            if (object.Equals(cell.Value.Formula.Expression, cell.Value.Value))
                             {
-                                string replacement = ExternalLinkFormulaUtils.ReplaceExternalLinkId(originalValue, externalReferences);
-                                FormulaData formulaData = new FormulaData(replacement); // No cached value available
-                                formulaData.HasExternalReferences = true;
-                                cell.Value.Formula = formulaData;
                                 cell.Value.Value = replacement;
-
                             }
+                            cell.Value.Formula.Expression = replacement;
+                            cell.Value.Formula.HasExternalReferences = true;
                         }
-                        else if (cell.Value.Formula != null)
+                        if (replacementMap.Count > 0 && cell.Value.Formula.DefinedNameReference != null)
                         {
-                            string originalValue = cell.Value.Value?.ToString() ?? string.Empty;
-                            if (ExternalLinkFormulaUtils.DetectExternalLinkId(originalValue))
+                            string id = GetDefinedNameId(cell.Value.Formula.DefinedNameReference);
+                            if (replacementMap.TryGetValue(id, out DefinedName newValue))
                             {
-                                string replacement = ExternalLinkFormulaUtils.ReplaceExternalLinkId(originalValue, externalReferences);
-                                if (object.Equals(cell.Value.Formula.Expression, cell.Value.Value))
-                                {
-                                    cell.Value.Value = replacement;
-                                }
-                                cell.Value.Formula.Expression = replacement;
-                                cell.Value.Formula.HasExternalReferences = true;
-                            }
-                            if (replacementMap.Count > 0 && cell.Value.Formula.DefinedNameReference != null)
-                            {
-                                string id = GetDefinedNameId(cell.Value.Formula.DefinedNameReference);
-                                if (replacementMap.TryGetValue(id, out DefinedName newValue))
-                                {
-                                    cell.Value.Formula.DefinedNameReference = newValue;
-                                }
+                                cell.Value.Formula.DefinedNameReference = newValue;
                             }
                         }
                     }

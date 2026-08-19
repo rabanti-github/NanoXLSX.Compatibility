@@ -367,6 +367,38 @@ namespace NanoXLSX.Compatibility.Test
 
         #region builderTests
 
+        [Fact(DisplayName = "Test of the public Constructor of the builder")]
+        public void BuilderConstructorTest()
+        {
+            ExternalLinkBuilder builder = new ExternalLinkBuilder("C:\\temp\\file.xlsx", "file.xlsx");
+            Assert.NotNull(builder);
+            ExternalLink link = builder.Build();
+            Assert.Equal("C:\\temp\\file.xlsx", link.AbsoluteAlternateUri);
+            Assert.Equal("file.xlsx", link.RelativeUri);
+            Assert.Null(link.RelativeAlternateUri);
+            Assert.Empty(link.Worksheets);
+            Assert.Empty(link.DefinedNames);
+        }
+
+        [Fact(DisplayName = "Test of the failing builder constructor on a null URI")]
+        public void BuilderConstructorFailTest()
+        {
+            string nullString = null;
+            Assert.Throws<ArgumentException>(() => { new ExternalLinkBuilder(nullString); });
+        }
+
+        [Theory(DisplayName = "Test of the failing builder constructor on a invalid URIs")]
+        [InlineData(null, "C:\\temp\\file.xlsx")]
+        [InlineData("C:\\temp\\file.xlsx", "abc")]
+        [InlineData("0", "C:\\temp\\file.xlsx")]
+        [InlineData("0", "1")]
+        public void BuilderConstructorFailTest2(string uri1, string uri2)
+        {
+            string nullString = null;
+            Assert.Throws<ArgumentException>(() => { new ExternalLinkBuilder(uri1, uri2); });
+        }
+
+
         [Fact(DisplayName = "Test of the CreateBuilder method in ExternalLink")]
         public void CreateBuilderTest()
         {

@@ -13,6 +13,10 @@ namespace NanoXLSX.Compatibility.Test
             Assert.Equal("name", ws.Name);
             Assert.NotNull(ws.Cells);
             Assert.Empty(ws.Cells);
+            Assert.Null(ws.RefreshErros);
+
+            ws.RefreshErros = true;
+            Assert.True(ws.RefreshErros);
         }
 
         [Theory(DisplayName = "Test of the failing constructor on invalid values")]
@@ -66,6 +70,24 @@ namespace NanoXLSX.Compatibility.Test
             Assert.Equal("55", ws.Cells[new Address("A1")].Value);
             Assert.Equal(ExternalCellValue.DataType.Boolean, ws.Cells[new Address("A2")].Type);
             Assert.Equal(ExternalCellValue.DataType.Number, ws.Cells[new Address("A1")].Type);
+        }
+
+        [Fact(DisplayName = "Test of the AddCell method with cell metadata")]
+        public void AddCellTest3()
+        {
+            ExternalWorksheet ws = new ExternalWorksheet("name");
+            ws.AddCell("A2", "0", ExternalCellValue.DataType.Boolean, "5");
+            ws.AddCell("A1", "55", ExternalCellValue.DataType.Number, null);
+            Assert.NotEmpty(ws.Cells);
+            Assert.Equal(2, ws.Cells.Count);
+            Address a1 = new Address("A1");
+            Address a2 = new Address("A2");
+            Assert.Equal("0", ws.Cells[a2].Value);
+            Assert.Equal("55", ws.Cells[a1].Value);
+            Assert.Equal(5, ws.Cells[a2].CellMetadata);
+            Assert.Null(ws.Cells[a1].CellMetadata);
+            Assert.Equal(ExternalCellValue.DataType.Boolean, ws.Cells[a2].Type);
+            Assert.Equal(ExternalCellValue.DataType.Number, ws.Cells[a1].Type);
         }
 
         [Theory(DisplayName = "Test of the failing AddCell method on invalid values (address)")]
