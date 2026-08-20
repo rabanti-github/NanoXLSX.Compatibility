@@ -149,4 +149,4 @@ dotnet add package NanoXLSX.Compatibility
 NanoXLSX.Compatibility is published under the **MIT** license.
 
 The project / package is developed with as much compliance to this license as only possible.
-Please visit the main repository [NanoXLSX](https://github.com/rabanti-github/NanoXLSX) for compliance a scan, provided by Fossa 
+Please visit the main repository [NanoXLSX](https://github.com/rabanti-github/NanoXLSX) for compliance a scan, provided by Fossa
